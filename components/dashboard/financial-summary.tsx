@@ -21,7 +21,7 @@ interface Transaction {
   type: "receitas" | "despesa"
 }
 
-const categories = ["Alimentação", "Transporte", "Lazer", "Material Estoque", "Outros"]
+const categories = ["Alimentação", "Transporte", "Lazer", "Material Estoque", "Contas", ]
 
 export function FinancialSummary() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
