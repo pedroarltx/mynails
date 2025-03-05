@@ -1,75 +1,101 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { ArrowDownIcon, ArrowUpIcon, DollarSign, Download, Filter, Plus, Search } from "lucide-react"
-import { DashboardLayout } from "@/components/layout/dashboard-layout"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useFirestore } from "@/lib/useFirestore"
-import { format } from "date-fns"
-import { ptBR } from "date-fns/locale"
-import { TransactionDialog } from "@/components/dashboard/transaction-dialog"
-import { DateRangePicker } from "@/components/ui/date-range-picker"
+import { useState, useEffect, useMemo, lazy, Suspense, SyntheticEvent } from "react";
+import { ArrowDownIcon, ArrowUpIcon, DollarSign, Download, Filter, Plus, Search } from "lucide-react";
+import { DashboardLayout } from "@/components/layout/dashboard-layout";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useFirestore } from "@/lib/useFirestore";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { debounce } from "lodash";
+import { TransactionDialog } from "@/components/dashboard/transaction-dialog";
 
 interface Transaction {
-  id: string
-  description: string
-  category: string
-  date: string
-  amount: number
-  type: "receitas" | "despesas"
+  id: string;
+  description: string;
+  category: string;
+  date: string;
+  amount: number;
+  type: "receitas" | "despesas";
 }
 
 export default function FinancasPage() {
-  const [filter, setFilter] = useState("todos")
-  const [searchTerm, setSearchTerm] = useState("")
-  const [dateRange, setDateRange] = useState({ from: new Date(new Date().getFullYear(), 0, 1), to: new Date() })
-  const [isTransactionDialogOpen, setIsTransactionDialogOpen] = useState(false)
-  const { documents: transactions, addDocument, loading, error } = useFirestore<Transaction>("transactions")
+  const [filter, setFilter] = useState<"todos" | "receitas" | "despesas">("todos");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
+    from: new Date(new Date().getFullYear(), 0, 1),
+    to: new Date(),
+  });
+  const [isTransactionDialogOpen, setIsTransactionDialogOpen] = useState(false);
+  const { documents: transactions, addDocument, loading, error } = useFirestore<Transaction>("transactions");
 
-  useEffect(() => {
-    console.log("Transactions loaded:", transactions)
-  }, [transactions])
+  // Filtra as transações com base no filtro, termo de busca e intervalo de datas
+  const filteredTransactions = useMemo(() => {
+    return transactions
+      .filter((t) => filter === "todos" || t.type === filter)
+      .filter((t) => t.description.toLowerCase().includes(searchTerm.toLowerCase()))
+      .filter((t) => {
+        const transactionDate = new Date(t.date);
+        return transactionDate >= dateRange.from && transactionDate <= dateRange.to;
+      });
+  }, [transactions, filter, searchTerm, dateRange]);
 
-  const filteredTransactions = transactions
-    .filter((t) => filter === "todos" || t.type === filter)
-    .filter((t) => t.description.toLowerCase().includes(searchTerm.toLowerCase()))
-    .filter((t) => {
-      const transactionDate = new Date(t.date)
-      return transactionDate >= dateRange.from && transactionDate <= dateRange.to
-    })
+  // Calcula o total de receitas
+  const totalRevenue = useMemo(
+    () => filteredTransactions.filter((t) => t.type === "receitas").reduce((sum, t) => sum + t.amount, 0),
+    [filteredTransactions]
+  );
 
-  console.log("Filtered transactions:", filteredTransactions)
+  // Calcula o total de despesas
+  const totalExpenses = useMemo(
+    () => filteredTransactions.filter((t) => t.type === "despesas").reduce((sum, t) => sum + t.amount, 0),
+    [filteredTransactions]
+  );
 
-  const totalRevenue = filteredTransactions.filter((t) => t.type === "receitas").reduce((sum, t) => sum + t.amount, 0)
+  // Calcula o lucro líquido
+  const netProfit = useMemo(() => totalRevenue - totalExpenses, [totalRevenue, totalExpenses]);
 
-  const totalExpenses = filteredTransactions.filter((t) => t.type === "despesas").reduce((sum, t) => sum + t.amount, 0)
+  // Calcula as porcentagens das categorias de receitas e despesas
+  const revenueCategories = useMemo(
+    () => calculateCategoryPercentages(filteredTransactions, "receitas"),
+    [filteredTransactions]
+  );
 
-  const netProfit = totalRevenue - totalExpenses
+  const expenseCategories = useMemo(
+    () => calculateCategoryPercentages(filteredTransactions, "despesas"),
+    [filteredTransactions]
+  );
 
-  const revenueCategories = calculateCategoryPercentages(filteredTransactions, "receitas")
-  const expenseCategories = calculateCategoryPercentages(filteredTransactions, "despesas")
-
+  // Adiciona uma nova transação
   const handleAddTransaction = async (newTransaction: Omit<Transaction, "id">) => {
-    await addDocument(newTransaction)
-    setIsTransactionDialogOpen(false)
-  }
+    await addDocument(newTransaction);
+    setIsTransactionDialogOpen(false);
+  };
 
-  if (loading) {
-    return <div>Carregando...</div>
-  }
+  // Debouncing para a busca
+  const handleSearch = debounce((term: string) => {
+    setSearchTerm(term);
+  }, 300);
 
-  if (error) {
-    return <div>Erro ao carregar dados: {error}</div>
-  }
+  
+
+  const handleFilterChange = (value: string) => {
+    setFilter(value as "receitas" | "despesas" | "todos");
+  };
+
+  if (loading) return <div>Carregando...</div>;
+  if (error) return <div>Erro ao carregar dados: {error}</div>;
 
   return (
     <DashboardLayout title="Finanças">
       <div className="p-4 space-y-4 flex-1">
+        {/* Cards de Resumo */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -103,22 +129,24 @@ export default function FinancasPage() {
           </Card>
         </div>
 
+        {/* Filtros e Botões */}
         <div className="flex flex-col md:flex-row items-center gap-2">
           <DateRangePicker
-            from={dateRange?.from || new Date()}
-            to={dateRange?.to || new Date()}
-            onSelect={(range) => setDateRange({ from: range.from, to: range.to })}
+            from={dateRange.from}
+            to={dateRange.to}
+            onSelect={(event: SyntheticEvent<HTMLDivElement, Event> | { from: Date | undefined; to: Date | undefined }) => {
+              if ('from' in event && 'to' in event) {
+                setDateRange({ from: event.from, to: event.to });
+              }
+            }}
           />
-          <Button variant="outline" size="sm" className="w-full md:w-auto">
-            <Download className="mr-2 h-4 w-4" />
-            Exportar
-          </Button>
           <Button size="sm" onClick={() => setIsTransactionDialogOpen(true)} className="w-full md:w-auto">
             <Plus className="mr-2 h-4 w-4" />
             Nova Transação
           </Button>
         </div>
 
+        {/* Abas de Transações e Categorias */}
         <Tabs defaultValue="transacoes" className="space-y-4">
           <TabsList className="w-full">
             <TabsTrigger value="transacoes" className="flex-1">Transações</TabsTrigger>
@@ -132,11 +160,10 @@ export default function FinancasPage() {
                   type="search"
                   placeholder="Buscar transações..."
                   className="pl-8 w-full"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e) => handleSearch(e.target.value)}
                 />
               </div>
-              <Select value={filter} onValueChange={setFilter}>
+              <Select value={filter} onValueChange={handleFilterChange}>
                 <SelectTrigger className="w-full md:w-[180px]">
                   <Filter className="mr-2 h-4 w-4" />
                   <SelectValue placeholder="Filtrar por" />
@@ -239,81 +266,33 @@ export default function FinancasPage() {
           </TabsContent>
         </Tabs>
       </div>
-      <TransactionDialog
-        isOpen={isTransactionDialogOpen}
-        onClose={() => setIsTransactionDialogOpen(false)}
-        onAddTransaction={handleAddTransaction}
-      />
+
+      {/* Modal de Nova Transação */}
+      <Suspense fallback={<div>Carregando...</div>}>
+        <TransactionDialog
+          isOpen={isTransactionDialogOpen}
+          onClose={() => setIsTransactionDialogOpen(false)}
+          onAddTransaction={handleAddTransaction}
+        />
+      </Suspense>
     </DashboardLayout>
-  )
+  );
 }
 
-function calculateCategoryPercentages(transactions: Transaction[], type: "receitas" | "despesas") {
-  const filteredTransactions = transactions.filter((t) => t.type === type)
-  const total = filteredTransactions.reduce((sum, t) => sum + t.amount, 0)
-  const categories = filteredTransactions.reduce(
-    (acc, t) => {
-      acc[t.category] = (acc[t.category] || 0) + t.amount
-      return acc
-    },
-    {} as Record<string, number>,
-  )
+// Função para calcular as porcentagens das categorias
+function calculateCategoryPercentages(
+  transactions: Transaction[],
+  type: "receitas" | "despesas"
+): { name: string; percentage: number }[] {
+  const filteredTransactions = transactions.filter((t) => t.type === type);
+  const total = filteredTransactions.reduce((sum, t) => sum + t.amount, 0);
+  const categories = filteredTransactions.reduce((acc, t) => {
+    acc[t.category] = (acc[t.category] || 0) + t.amount;
+    return acc;
+  }, {} as Record<string, number>);
 
   return Object.entries(categories).map(([name, amount]) => ({
     name,
-    percentage: (amount / total) * 100,
-  }))
-}
-
-function generateReports(transactions: Transaction[]) {
-  const currentDate = new Date()
-  const currentMonth = currentDate.getMonth()
-  const currentYear = currentDate.getFullYear()
-
-  return [
-    {
-      title: `Relatório Mensal - ${format(currentDate, "MMMM yyyy", { locale: ptBR })}`,
-      description: "Resumo completo de receitas e despesas do mês",
-      data: transactions.filter((t) => {
-        const transactionDate = new Date(t.date)
-        return transactionDate.getMonth() === currentMonth && transactionDate.getFullYear() === currentYear
-      }),
-    },
-    {
-      title: `Relatório Trimestral - Q${Math.floor(currentMonth / 3) + 1} ${currentYear}`,
-      description: "Análise financeira do trimestre atual",
-      data: transactions.filter((t) => {
-        const transactionDate = new Date(t.date)
-        return (
-          transactionDate.getFullYear() === currentYear &&
-          Math.floor(transactionDate.getMonth() / 3) === Math.floor(currentMonth / 3)
-        )
-      }),
-    },
-    {
-      title: "Relatório de Serviços",
-      description: "Detalhamento dos serviços mais lucrativos",
-      data: transactions.filter((t) => t.type === "receitas" && t.category === "Serviços"),
-    },
-    {
-      title: "Relatório de Despesas",
-      description: "Análise detalhada de todas as despesas",
-      data: transactions.filter((t) => t.type === "despesas"),
-    },
-  ]
-}
-
-function downloadReport(report: { title: string; description: string; data: Transaction[] }) {
-  const csvContent =
-    "data:text/csv;charset=utf-8," +
-    "Descrição,Categoria,Data,Valor,Tipo\n" +
-    report.data.map((t) => `${t.description},${t.category},${t.date},${t.amount},${t.type}`).join("\n")
-
-  const encodedUri = encodeURI(csvContent)
-  const link = document.createElement("a")
-  link.setAttribute("href", encodedUri)
-  link.setAttribute("download", `${report.title}.csv`)
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
+    percentage: total === 0 ? 0 : (amount / total) * 100,
+  }));
 }
