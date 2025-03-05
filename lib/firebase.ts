@@ -1,6 +1,7 @@
-import { initializeApp, getApps } from "firebase/app"
-import { getFirestore } from "firebase/firestore"
-import { getAuth } from "firebase/auth"
+// firebase.ts
+import { initializeApp, getApps, FirebaseApp } from "firebase/app";
+import { getAuth, Auth, setPersistence, browserSessionPersistence } from "firebase/auth";
+import { getFirestore, Firestore } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -9,12 +10,30 @@ const firebaseConfig = {
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+};
+
+// Inicializa o Firebase apenas se ainda não foi inicializado
+let app: FirebaseApp;
+let db: Firestore;
+let auth: Auth;
+
+if (!getApps().length) {
+  app = initializeApp(firebaseConfig);
+  db = getFirestore(app);
+  auth = getAuth(app);
+
+  // Configura a persistência de autenticação como SESSION
+  setPersistence(auth, browserSessionPersistence)
+    .then(() => {
+      console.log("Persistência de autenticação configurada como SESSION.");
+    })
+    .catch((error) => {
+      console.error("Erro ao configurar persistência de autenticação:", error);
+    });
+} else {
+  app = getApps()[0];
+  db = getFirestore(app);
+  auth = getAuth(app);
 }
 
-// Initialize Firebase
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0]
-const db = getFirestore(app)
-const auth = getAuth(app)
-
-export { app, db, auth }
-
+export { app, db, auth };

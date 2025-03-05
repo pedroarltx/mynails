@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect, useMemo, useCallback } from "react";
+import ProtectedRoute from "@/hooks/protected-route";
 import {
   CalendarIcon,
   ChevronLeft,
@@ -475,7 +476,8 @@ export default function AgendamentosPage() {
   );
 
   return (
-    <DashboardLayout title="Agendamentos">
+    <ProtectedRoute>
+      <DashboardLayout title="Agendamentos">
       <ToastContainer />
       <div className="p-4 space-y-4 flex-1">
         <div className="flex flex-col md:flex-row items-center justify-between">
@@ -1264,5 +1266,6 @@ export default function AgendamentosPage() {
         </Tabs>
       </div>
     </DashboardLayout>
+    </ProtectedRoute>
   );
 }

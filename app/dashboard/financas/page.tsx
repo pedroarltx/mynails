@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, lazy, Suspense, SyntheticEvent } from "react";
+import ProtectedRoute from "@/hooks/protected-route";
 import { ArrowDownIcon, ArrowUpIcon, DollarSign, Download, Filter, Plus, Search } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { Button } from "@/components/ui/button";
@@ -93,7 +94,8 @@ export default function FinancasPage() {
   if (error) return <div>Erro ao carregar dados: {error}</div>;
 
   return (
-    <DashboardLayout title="Finanças">
+    <ProtectedRoute>
+      <DashboardLayout title="Finanças">
       <div className="p-4 space-y-4 flex-1">
         {/* Cards de Resumo */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -276,6 +278,7 @@ export default function FinancasPage() {
         />
       </Suspense>
     </DashboardLayout>
+  </ProtectedRoute>
   );
 }
 
