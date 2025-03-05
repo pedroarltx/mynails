@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   CalendarIcon,
   ChevronLeft,
@@ -67,6 +67,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { debounce } from "lodash";
 
 // Esquema de validação para Agendamento
 const appointmentSchema = z.object({
@@ -77,8 +78,8 @@ const appointmentSchema = z.object({
   date: z.date({ required_error: "A data é obrigatória" }),
   timeSlot: z.string().min(1, "O horário é obrigatório"),
   notes: z.string().optional(),
-  status: z.string().optional(), // Adicionado como opcional
-  createdAt: z.string().optional(), // Adicionado como opcional
+  status: z.string().optional(),
+  createdAt: z.string().optional(),
 });
 
 // Esquema de validação para Cliente
@@ -128,23 +129,22 @@ interface Client {
 interface Service {
   id: string;
   title: string;
-  duration: number; // Duração em minutos
+  duration: number;
   price: number;
 }
 
 export default function AgendamentosPage() {
   const [date, setDate] = useState<Date | undefined>(new Date());
-  const [view, setView] = useState("dia");
+  const [view, setView] = useState<"dia" | "semana" | "mes">("dia");
   const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
-  const [isPopoverOpen, setIsPopoverOpen] = useState(false); // Estado para controlar o Popover
+  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [clients, setClients] = useState<Client[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [isAppointmentModalOpen, setIsAppointmentModalOpen] = useState(false);
   const [isClientModalOpen, setIsClientModalOpen] = useState(false);
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
   const [isSelectClientModalOpen, setIsSelectClientModalOpen] = useState(false);
-  const [editingAppointment, setEditingAppointment] =
-    useState<Appointment | null>(null);
+  const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
   // Formulário de Agendamento
@@ -153,7 +153,7 @@ export default function AgendamentosPage() {
     handleSubmit: handleSubmitAppointment,
     reset: resetAppointment,
     control: controlAppointment,
-    setValue, // Extraia o setValue aqui
+    setValue,
     formState: { errors: appointmentErrors },
   } = useForm<AppointmentFormData>({
     resolver: zodResolver(appointmentSchema),
@@ -181,38 +181,37 @@ export default function AgendamentosPage() {
   });
 
   // Horários disponíveis
-  const timeSlots = [
-    "08:00",
-    "09:00",
-    "10:00",
-    "11:00",
-    "12:00",
-    "13:00",
-    "14:00",
-    "15:00",
-    "16:00",
-    "17:00",
-    "18:00",
-  ];
+  const timeSlots = useMemo(
+    () => [
+      "08:00",
+      "09:00",
+      "10:00",
+      "11:00",
+      "12:00",
+      "13:00",
+      "14:00",
+      "15:00",
+      "16:00",
+      "17:00",
+      "18:00",
+    ],
+    []
+  );
 
   // Buscar agendamentos do Firebase
   useEffect(() => {
     const agendamentosRef = collection(db, "agendamentos");
-
-    const unsubscribeAgendamentos = onSnapshot(
-      agendamentosRef,
-      (querySnapshot) => {
-        const appointments = querySnapshot.docs.map((doc) => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            ...data,
-            date: data.date?.toDate ? data.date.toDate() : new Date(), // Converte Timestamp para Date
-          } as Appointment; // Define o tipo como Appointment
-        });
-        setAllAppointments(appointments);
-      }
-    );
+    const unsubscribeAgendamentos = onSnapshot(agendamentosRef, (querySnapshot) => {
+      const appointments = querySnapshot.docs.map((doc) => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          date: data.date?.toDate ? data.date.toDate() : new Date(),
+        } as Appointment;
+      });
+      setAllAppointments(appointments);
+    });
 
     return () => unsubscribeAgendamentos();
   }, []);
@@ -220,7 +219,6 @@ export default function AgendamentosPage() {
   // Buscar clientes do Firebase
   useEffect(() => {
     const clientesRef = collection(db, "clientes");
-
     const unsubscribeClientes = onSnapshot(clientesRef, (querySnapshot) => {
       const clientes = querySnapshot.docs.map((doc) => ({
         id: doc.id,
@@ -236,7 +234,6 @@ export default function AgendamentosPage() {
   // Buscar serviços do Firebase
   useEffect(() => {
     const servicesRef = collection(db, "services");
-
     const unsubscribeServices = onSnapshot(servicesRef, (querySnapshot) => {
       const services = querySnapshot.docs.map((doc) => ({
         id: doc.id,
@@ -249,144 +246,147 @@ export default function AgendamentosPage() {
   }, []);
 
   // Fechar modal de agendamento
-  const handleCloseAppointmentModal = () => {
+  const handleCloseAppointmentModal = useCallback(() => {
     setIsAppointmentModalOpen(false);
     resetAppointment();
     setEditingAppointment(null);
-  };
+  }, [resetAppointment]);
 
   // Salvar novo agendamento
-  const onSubmitAppointment = async (data: {
-    name: any;
-    email: any;
-    phone: any;
-    notes: any;
-    serviceName: any;
-    date: any;
-    timeSlot: any;
-  }) => {
-    try {
-      // Extraia os dados do formulário
-      const { name, email, phone, notes, serviceName, date, timeSlot } = data;
+  const onSubmitAppointment = useCallback(
+    async (data: AppointmentFormData) => {
+      try {
+        const { name, email, phone, notes, serviceName, date, timeSlot } = data;
+        const selectedService = services.find((service) => service.title === serviceName);
 
-      // Encontre o serviço selecionado para obter o ID e o preço
-      const selectedService = services.find(
-        (service) => service.title === serviceName
-      );
+        if (!selectedService) {
+          throw new Error("Serviço não encontrado.");
+        }
 
-      if (!selectedService) {
-        throw new Error("Serviço não encontrado.");
+        const agendamento = {
+          name,
+          email,
+          phone,
+          notes: notes || "",
+          serviceId: selectedService.id,
+          serviceName: selectedService.title,
+          servicePrice: selectedService.price,
+          date: Timestamp.fromDate(date),
+          timeSlot,
+          createdAt: Timestamp.fromDate(new Date()),
+          status: "pendente",
+        };
+
+        await addDoc(collection(db, "agendamentos"), agendamento);
+        handleCloseAppointmentModal();
+        resetAppointment();
+      } catch (error) {
+        console.error("Erro ao criar agendamento:", error);
+        toast.error("Ocorreu um erro ao criar o agendamento. Tente novamente.");
       }
-
-      // Crie o objeto de agendamento
-      const agendamento = {
-        name,
-        email,
-        phone,
-        notes: notes || "", // Observações são opcionais
-        serviceId: selectedService.id, // ID do serviço
-        serviceName: selectedService.title, // Nome do serviço
-        servicePrice: selectedService.price, // Preço do serviço
-        date: Timestamp.fromDate(date),
-        timeSlot,
-        createdAt: Timestamp.fromDate(new Date()), // Data de criação
-        status: "pendente", // Status inicial
-      };
-
-      // Envie para o Firebase (ou outro banco de dados)
-      await addDoc(collection(db, "agendamentos"), agendamento);
-
-      // Feche o modal e limpe o formulário
-      handleCloseAppointmentModal();
-      resetAppointment(); // Limpa os campos do formulário
-    } catch (error) {
-      console.error("Erro ao criar agendamento:", error);
-      alert("Ocorreu um erro ao criar o agendamento. Tente novamente.");
-    }
-  };
+    },
+    [services, handleCloseAppointmentModal, resetAppointment]
+  );
 
   // Atualizar agendamento
-  const handleUpdateAppointment = async (data: AppointmentFormData) => {
-    try {
-      await updateDoc(doc(db, "agendamentos", editingAppointment!.id), {
-        ...data, // Atualiza apenas os campos do formulário
-        date: Timestamp.fromDate(data.date), // Converte Date para Timestamp
-      });
-      toast.success("Agendamento atualizado com sucesso!");
-      handleCloseAppointmentModal();
-      setEditingAppointment(null);
-    } catch (error) {
-      console.error("Erro ao atualizar agendamento:", error);
-      toast.error("Erro ao atualizar agendamento. Tente novamente.");
-    }
-  };
+  const handleUpdateAppointment = useCallback(
+    async (data: AppointmentFormData) => {
+      if (!editingAppointment) return;
+
+      try {
+        await updateDoc(doc(db, "agendamentos", editingAppointment.id), {
+          ...data,
+          date: Timestamp.fromDate(data.date),
+        });
+        toast.success("Agendamento atualizado com sucesso!");
+        handleCloseAppointmentModal();
+        setEditingAppointment(null);
+      } catch (error) {
+        console.error("Erro ao atualizar agendamento:", error);
+        toast.error("Erro ao atualizar agendamento. Tente novamente.");
+      }
+    },
+    [editingAppointment, handleCloseAppointmentModal]
+  );
 
   // Fechar modal de seleção de cliente
-  const handleCloseSelectClientModal = () => {
+  const handleCloseSelectClientModal = useCallback(() => {
     setIsSelectClientModalOpen(false);
-  };
+  }, []);
 
   // Fechar modal de cliente
-  const handleCloseClientModal = () => {
+  const handleCloseClientModal = useCallback(() => {
     setIsClientModalOpen(false);
     resetClient();
-  };
+  }, [resetClient]);
 
   // Salvar novo cliente
-  const onSubmitClient = async (data: ClientFormData) => {
-    try {
-      await addDoc(collection(db, "clientes"), {
-        ...data,
-        createdAt: new Date().toISOString(),
-      });
-      toast.success("Cliente cadastrado com sucesso!");
-      handleCloseClientModal();
-    } catch (error) {
-      console.error("Erro ao cadastrar cliente:", error);
-      toast.error("Erro ao cadastrar cliente. Tente novamente.");
-    }
-  };
+  const onSubmitClient = useCallback(
+    async (data: ClientFormData) => {
+      try {
+        await addDoc(collection(db, "clientes"), {
+          ...data,
+          createdAt: new Date().toISOString(),
+        });
+        toast.success("Cliente cadastrado com sucesso!");
+        handleCloseClientModal();
+      } catch (error) {
+        console.error("Erro ao cadastrar cliente:", error);
+        toast.error("Erro ao cadastrar cliente. Tente novamente.");
+      }
+    },
+    [handleCloseClientModal]
+  );
 
   // Salvar novo serviço
-  const onSubmitService = async (data: ServiceFormData) => {
-    try {
-      await addDoc(collection(db, "services"), {
-        ...data,
-        createdAt: new Date().toISOString(),
-      });
-      toast.success("Serviço cadastrado com sucesso!");
-      setIsServiceModalOpen(false);
-      resetService();
-    } catch (error) {
-      console.error("Erro ao cadastrar serviço:", error);
-      toast.error("Erro ao cadastrar serviço. Tente novamente.");
-    }
-  };
+  const onSubmitService = useCallback(
+    async (data: ServiceFormData) => {
+      try {
+        await addDoc(collection(db, "services"), {
+          ...data,
+          createdAt: new Date().toISOString(),
+        });
+        toast.success("Serviço cadastrado com sucesso!");
+        setIsServiceModalOpen(false);
+        resetService();
+      } catch (error) {
+        console.error("Erro ao cadastrar serviço:", error);
+        toast.error("Erro ao cadastrar serviço. Tente novamente.");
+      }
+    },
+    [resetService]
+  );
 
   // Função para selecionar um cliente a partir dos últimos agendamentos
-  const handleSelectClientFromAppointments = (appointment: Appointment) => {
-    resetClient({
-      name: appointment.name,
-      email: appointment.email,
-      phone: appointment.phone,
-    });
-    setIsSelectClientModalOpen(false);
-    setIsClientModalOpen(true);
-  };
+  const handleSelectClientFromAppointments = useCallback(
+    (appointment: Appointment) => {
+      resetClient({
+        name: appointment.name,
+        email: appointment.email,
+        phone: appointment.phone,
+      });
+      setIsSelectClientModalOpen(false);
+      setIsClientModalOpen(true);
+    },
+    [resetClient]
+  );
 
   // Verificar se o horário está disponível
-  const isTimeSlotAvailable = (selectedDate: Date, timeSlot: string) => {
-    return !allAppointments.some(
-      (appointment) =>
-        dateFns.format(appointment.date, "yyyy-MM-dd") ===
-          dateFns.format(selectedDate, "yyyy-MM-dd") &&
-        appointment.timeSlot === timeSlot &&
-        appointment.status !== "cancelado"
-    );
-  };
+  const isTimeSlotAvailable = useCallback(
+    (selectedDate: Date, timeSlot: string) => {
+      return !allAppointments.some(
+        (appointment) =>
+          dateFns.format(appointment.date, "yyyy-MM-dd") ===
+            dateFns.format(selectedDate, "yyyy-MM-dd") &&
+          appointment.timeSlot === timeSlot &&
+          appointment.status !== "cancelado"
+      );
+    },
+    [allAppointments]
+  );
 
   // Cancelar agendamento
-  const handleCancelAppointment = async (appointmentId: string) => {
+  const handleCancelAppointment = useCallback(async (appointmentId: string) => {
     if (window.confirm("Tem certeza que deseja cancelar este agendamento?")) {
       try {
         await updateDoc(doc(db, "agendamentos", appointmentId), {
@@ -398,32 +398,39 @@ export default function AgendamentosPage() {
         toast.error("Erro ao cancelar agendamento. Tente novamente.");
       }
     }
-  };
+  }, []);
 
   // Buscar clientes por nome ou email
-  const searchClients = (query: string) => {
-    return clients.filter(
-      (client) =>
-        client.name.toLowerCase().includes(query.toLowerCase()) ||
-        client.email.toLowerCase().includes(query.toLowerCase())
-    );
-  };
+  const searchClients = useCallback(
+    (query: string) => {
+      return clients.filter(
+        (client) =>
+          client.name.toLowerCase().includes(query.toLowerCase()) ||
+          client.email.toLowerCase().includes(query.toLowerCase())
+      );
+    },
+    [clients]
+  );
 
   // Obter horários disponíveis para o dia selecionado
-  const getAvailableTimeSlots = (selectedDate: Date) => {
-    const occupiedSlots = allAppointments
-      .filter(
-        (appointment) =>
-          dateFns.format(appointment.date, "yyyy-MM-dd") ===
-            dateFns.format(selectedDate, "yyyy-MM-dd") &&
-          appointment.status !== "cancelado"
-      )
-      .map((appointment) => appointment.timeSlot);
+  const getAvailableTimeSlots = useCallback(
+    (selectedDate: Date) => {
+      const occupiedSlots = allAppointments
+        .filter(
+          (appointment) =>
+            dateFns.format(appointment.date, "yyyy-MM-dd") ===
+              dateFns.format(selectedDate, "yyyy-MM-dd") &&
+            appointment.status !== "cancelado"
+        )
+        .map((appointment) => appointment.timeSlot);
 
-    return timeSlots.filter((slot) => !occupiedSlots.includes(slot));
-  };
+      return timeSlots.filter((slot) => !occupiedSlots.includes(slot));
+    },
+    [allAppointments, timeSlots]
+  );
 
-  const getFilteredAppointments = () => {
+  // Filtro de agendamentos
+  const filteredAppointments = useMemo(() => {
     if (view === "dia" && date) {
       return allAppointments.filter(
         (appointment) =>
@@ -440,13 +447,8 @@ export default function AgendamentosPage() {
         })
       );
     } else if (view === "mes" && date) {
-      const startOfMonthDate = date?.getTime()
-        ? dateFns.startOfMonth(date)
-        : null;
-      const endOfMonthDate = date?.getTime() ? dateFns.endOfMonth(date) : null;
-      if (!startOfMonthDate || !endOfMonthDate) {
-        throw new Error("Date is required");
-      }
+      const startOfMonthDate = dateFns.startOfMonth(date);
+      const endOfMonthDate = dateFns.endOfMonth(date);
       return allAppointments.filter((appointment) =>
         dateFns.isWithinInterval(appointment.date, {
           start: startOfMonthDate,
@@ -454,9 +456,17 @@ export default function AgendamentosPage() {
         })
       );
     }
-  };
+    return [];
+  }, [allAppointments, date, view]);
 
-  const filteredAppointments = getFilteredAppointments();
+  // Debounced search
+  const handleSearch = useCallback(
+    debounce((query: string) => {
+      setSearchQuery(query);
+    }, 300),
+    []
+  );
+
 
   return (
     <DashboardLayout title="Agendamentos">
@@ -968,7 +978,7 @@ export default function AgendamentosPage() {
                 >
                   <ChevronRight className="h-4 w-4" />
                 </Button>
-                <Select value={view} onValueChange={setView}>
+                <Select value={view} onValueChange={(value: "dia" | "semana" | "mes") => setView(value)}>
                   <SelectTrigger className="w-[120px]">
                     <SelectValue placeholder="Visualização" />
                   </SelectTrigger>
