@@ -15,7 +15,7 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
         <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
 
         {/* Conteúdo do Modal */}
-        <Dialog.Content className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white p-6 rounded-lg shadow-lg w-full max-w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto">
+        <Dialog.Content className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white p-4 sm:p-6 rounded-lg shadow-lg w-full max-w-[90vw] sm:max-w-[95vw] max-h-[70vh] overflow-y-auto">
           {/* Título do Modal */}
           <Dialog.Title className="text-lg font-bold mb-4">{title}</Dialog.Title>
 

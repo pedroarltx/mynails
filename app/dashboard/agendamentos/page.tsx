@@ -138,13 +138,15 @@ export default function AgendamentosPage() {
   const [view, setView] = useState<"dia" | "semana" | "mes">("dia");
   const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+  const [isPopoverOpenDate, setIsPopoverOpenDate] = useState(false);
   const [clients, setClients] = useState<Client[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [isAppointmentModalOpen, setIsAppointmentModalOpen] = useState(false);
   const [isClientModalOpen, setIsClientModalOpen] = useState(false);
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
   const [isSelectClientModalOpen, setIsSelectClientModalOpen] = useState(false);
-  const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
+  const [editingAppointment, setEditingAppointment] =
+    useState<Appointment | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
   // Formulário de Agendamento
@@ -201,17 +203,20 @@ export default function AgendamentosPage() {
   // Buscar agendamentos do Firebase
   useEffect(() => {
     const agendamentosRef = collection(db, "agendamentos");
-    const unsubscribeAgendamentos = onSnapshot(agendamentosRef, (querySnapshot) => {
-      const appointments = querySnapshot.docs.map((doc) => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          ...data,
-          date: data.date?.toDate ? data.date.toDate() : new Date(),
-        } as Appointment;
-      });
-      setAllAppointments(appointments);
-    });
+    const unsubscribeAgendamentos = onSnapshot(
+      agendamentosRef,
+      (querySnapshot) => {
+        const appointments = querySnapshot.docs.map((doc) => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            ...data,
+            date: data.date?.toDate ? data.date.toDate() : new Date(),
+          } as Appointment;
+        });
+        setAllAppointments(appointments);
+      }
+    );
 
     return () => unsubscribeAgendamentos();
   }, []);
@@ -257,7 +262,9 @@ export default function AgendamentosPage() {
     async (data: AppointmentFormData) => {
       try {
         const { name, email, phone, notes, serviceName, date, timeSlot } = data;
-        const selectedService = services.find((service) => service.title === serviceName);
+        const selectedService = services.find(
+          (service) => service.title === serviceName
+        );
 
         if (!selectedService) {
           throw new Error("Serviço não encontrado.");
@@ -467,7 +474,6 @@ export default function AgendamentosPage() {
     []
   );
 
-
   return (
     <DashboardLayout title="Agendamentos">
       <ToastContainer />
@@ -653,11 +659,16 @@ export default function AgendamentosPage() {
                 name="date"
                 control={controlAppointment}
                 render={({ field }) => (
-                  <Popover>
+                  <Popover
+                    open={isPopoverOpenDate}
+                    onOpenChange={setIsPopoverOpenDate}
+                  >
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
                         className="w-full justify-start text-left font-normal"
+                        onClick={() => setIsPopoverOpenDate(!isPopoverOpenDate)} // Alternar abertura/fechamento
+                        onTouchStart={() => setIsPopoverOpenDate(true)} // Suporte para toque
                       >
                         <CalendarIcon className="mr-2 h-4 w-4" />
                         {field.value ? (
@@ -667,11 +678,19 @@ export default function AgendamentosPage() {
                         )}
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
+                    <PopoverContent
+                      className="w-full p-0"
+                      align="start" // Alinha o calendário com o botão
+                      side="bottom" // Posiciona o calendário abaixo do botão
+                      style={{ zIndex: 1000 }} // Garante que o calendário apareça acima de outros elementos
+                    >
                       <Calendar
                         mode="single"
                         selected={field.value}
-                        onSelect={field.onChange}
+                        onSelect={(date) => {
+                          field.onChange(date); // Atualiza o valor do campo
+                          setIsPopoverOpenDate(false); // Fecha o popover após selecionar uma data
+                        }}
                         initialFocus
                         locale={ptBR}
                       />
@@ -978,7 +997,12 @@ export default function AgendamentosPage() {
                 >
                   <ChevronRight className="h-4 w-4" />
                 </Button>
-                <Select value={view} onValueChange={(value: "dia" | "semana" | "mes") => setView(value)}>
+                <Select
+                  value={view}
+                  onValueChange={(value: "dia" | "semana" | "mes") =>
+                    setView(value)
+                  }
+                >
                   <SelectTrigger className="w-[120px]">
                     <SelectValue placeholder="Visualização" />
                   </SelectTrigger>

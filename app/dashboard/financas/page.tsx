@@ -22,11 +22,11 @@ interface Transaction {
   category: string;
   date: string;
   amount: number;
-  type: "receitas" | "despesas";
+  type: "receitas" | "despesa";
 }
 
 export default function FinancasPage() {
-  const [filter, setFilter] = useState<"todos" | "receitas" | "despesas">("todos");
+  const [filter, setFilter] = useState<"todos" | "receitas" | "despesa">("todos");
   const [searchTerm, setSearchTerm] = useState("");
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
     from: new Date(new Date().getFullYear(), 0, 1),
@@ -54,7 +54,7 @@ export default function FinancasPage() {
 
   // Calcula o total de despesas
   const totalExpenses = useMemo(
-    () => filteredTransactions.filter((t) => t.type === "despesas").reduce((sum, t) => sum + t.amount, 0),
+    () => filteredTransactions.filter((t) => t.type === "despesa").reduce((sum, t) => sum + t.amount, 0),
     [filteredTransactions]
   );
 
@@ -68,7 +68,7 @@ export default function FinancasPage() {
   );
 
   const expenseCategories = useMemo(
-    () => calculateCategoryPercentages(filteredTransactions, "despesas"),
+    () => calculateCategoryPercentages(filteredTransactions, "despesa"),
     [filteredTransactions]
   );
 
@@ -86,7 +86,7 @@ export default function FinancasPage() {
   
 
   const handleFilterChange = (value: string) => {
-    setFilter(value as "receitas" | "despesas" | "todos");
+    setFilter(value as "receitas" | "despesa" | "todos");
   };
 
   if (loading) return <div>Carregando...</div>;
@@ -192,7 +192,7 @@ export default function FinancasPage() {
                         <TableRow key={transaction.id}>
                           <TableCell className="font-medium">{transaction.description}</TableCell>
                           <TableCell>{transaction.category}</TableCell>
-                          <TableCell>{format(new Date(transaction.date), "dd/MM/yyyy", { locale: ptBR })}</TableCell>
+                          <TableCell>{format(new Date(transaction.date), "dd/MM", { locale: ptBR })}</TableCell>
                           <TableCell
                             className={`text-right font-medium ${
                               transaction.type === "receitas" ? "text-green-500" : "text-red-500"
@@ -282,7 +282,7 @@ export default function FinancasPage() {
 // Função para calcular as porcentagens das categorias
 function calculateCategoryPercentages(
   transactions: Transaction[],
-  type: "receitas" | "despesas"
+  type: "receitas" | "despesa"
 ): { name: string; percentage: number }[] {
   const filteredTransactions = transactions.filter((t) => t.type === type);
   const total = filteredTransactions.reduce((sum, t) => sum + t.amount, 0);

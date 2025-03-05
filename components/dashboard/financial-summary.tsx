@@ -2,22 +2,36 @@
 
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { DollarSign } from "lucide-react"
-import { collection, onSnapshot, query, orderBy, limit } from "firebase/firestore"
+import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { DollarSign, PlusCircle, MinusCircle } from "lucide-react"
+import { collection, onSnapshot, query, orderBy, limit, addDoc, Timestamp } from "firebase/firestore"
 import { db } from "@/lib/firebase"
+import { string } from "zod"
 
 interface Transaction {
   id: string
   description: string
   date: Date
   amount: number
+  category: string
   type: "receitas" | "despesa"
 }
+
+const categories = ["Alimentação", "Transporte", "Lazer", "Material Estoque", "Outros"]
 
 export function FinancialSummary() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [totalRevenue, setTotalRevenue] = useState(0)
   const [totalExpenses, setTotalExpenses] = useState(0)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [transactionType, setTransactionType] = useState<"receitas" | "despesa">("receitas")
+  const [description, setDescription] = useState("")
+  const [amount, setAmount] = useState("")
+  const [category, setCategory] = useState("")
 
   useEffect(() => {
     const transactionsRef = collection(db, "transactions")
@@ -39,6 +53,23 @@ export function FinancialSummary() {
 
     return () => unsubscribe()
   }, [])
+
+  const handleAddTransaction = async () => {
+    if (!description || !amount || !category) return;
+
+    await addDoc(collection(db, "transactions"), {
+      description,
+      amount: parseFloat(amount),
+      category,
+      type: transactionType,
+      date: Date.now(),
+    });
+
+    setIsModalOpen(false);
+    setDescription("");
+    setAmount("");
+    setCategory("");
+  };
 
   const netProfit = totalRevenue - totalExpenses
 
@@ -82,26 +113,41 @@ export function FinancialSummary() {
               </p>
             </div>
           </div>
-          <div className="space-y-2">
-            <h3 className="font-medium">Últimas Transações</h3>
-            <div className="rounded-lg border">
-              <div className="divide-y">
-                {transactions.map((transaction) => (
-                  <div key={transaction.id} className="flex items-center justify-between p-4">
-                    <div className="space-y-1">
-                      <p className="font-medium">{transaction.description}</p>
-                    </div>
-                    <p className={`font-medium ${transaction.type === "receitas" ? "text-green-500" : "text-red-500"}`}>
-                      {transaction.type === "receitas" ? "+" : "-"}R$ {transaction.amount.toFixed(2)}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
+          <div className="flex flex-col md:flex-row gap-4 justify-center">
+            <Button onClick={() => { setTransactionType("receitas"); setIsModalOpen(true); }} className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg">
+              <PlusCircle className="h-5 w-5" /> Adicionar Receita
+            </Button>
+            <Button onClick={() => { setTransactionType("despesa"); setIsModalOpen(true); }} className="flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg">
+              <MinusCircle className="h-5 w-5" /> Adicionar Despesa
+            </Button>
           </div>
+          <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Adicionar {transactionType === "receitas" ? "Receita" : "Despesa"}</DialogTitle>
+              </DialogHeader>
+              <Label>Descrição</Label>
+              <Input value={description} onChange={(e) => setDescription(e.target.value)} />
+              <Label>Valor</Label>
+              <Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} />
+              <Label>Categoria</Label>
+              <Select onValueChange={setCategory}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione uma categoria" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((cat) => (
+                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <DialogFooter>
+                <Button onClick={handleAddTransaction}>Adicionar</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </CardContent>
     </Card>
   )
 }
-

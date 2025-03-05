@@ -78,3 +78,10 @@
   background: #555; /* Cor do "thumb" ao passar o mouse */
 }
 
+@media (max-width: 768px) {
+  .calendar-popover {
+    z-index: 1000; /* Garante que o calendário apareça acima de outros elementos */
+    width: 100%; /* Ajusta a largura para dispositivos móveis */
+  }
+}
+

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CheckCircle } from "lucide-react";
@@ -8,8 +8,9 @@ import { collection, query, where, onSnapshot, doc, updateDoc, addDoc, Timestamp
 import { db } from "@/lib/firebase";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { debounce } from "lodash";
+import React from "react";
 
-// Interface para Agendamento
 interface Appointment {
   id: string;
   name: string;
@@ -17,21 +18,20 @@ interface Appointment {
   phone: string;
   serviceName: string;
   servicePrice: number;
-  date: Date; // Sempre um Date
+  date: Date;
   timeSlot: string;
   notes?: string;
   status: string;
-  createdAt: Date; // Sempre um Date
+  createdAt: Date;
 }
 
-// Função para converter Timestamp ou string ISO para Date
 const convertToDate = (date: Timestamp | string | Date): Date => {
   if (date instanceof Timestamp) {
-    return date.toDate(); // Converte Timestamp para Date
+    return date.toDate();
   } else if (typeof date === "string") {
-    return new Date(date); // Converte string ISO para Date
+    return new Date(date);
   } else if (date instanceof Date) {
-    return date; // Já é um Date
+    return date;
   }
   throw new Error("Formato de data não suportado");
 };
@@ -41,12 +41,7 @@ export function UpcomingAppointments() {
 
   useEffect(() => {
     const appointmentsRef = collection(db, "agendamentos");
-
-    // Filtra agendamentos com status "pendente" ou "cancelado"
-    const q = query(
-      appointmentsRef,
-      where("status", "in", ["pendente"]) // Filtra por status
-    );
+    const q = query(appointmentsRef, where("status", "==", "pendente"));
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const appointmentsData: Appointment[] = querySnapshot.docs.map((doc) => {
@@ -58,11 +53,11 @@ export function UpcomingAppointments() {
           phone: data.phone,
           serviceName: data.serviceName,
           servicePrice: data.servicePrice,
-          date: convertToDate(data.date), // Converte para Date
+          date: convertToDate(data.date),
           timeSlot: data.timeSlot,
           notes: data.notes,
           status: data.status,
-          createdAt: convertToDate(data.createdAt), // Converte para Date
+          createdAt: convertToDate(data.createdAt),
         };
       });
       setAppointments(appointmentsData);
@@ -71,79 +66,59 @@ export function UpcomingAppointments() {
     return () => unsubscribe();
   }, []);
 
-  const formatAppointmentDate = (date: Date): string => {
-    return format(date, "dd/MM/yyyy", { locale: ptBR }); // Formata a data no padrão dd/MM/yyyy
-  };
+  const formatAppointmentDate = useCallback((date: Date): string => {
+    return format(date, "dd/MM/yyyy", { locale: ptBR });
+  }, []);
 
-  const handleCompleteAppointment = async (appointment: Appointment): Promise<void> => {
-    try {
-      // Marcar o agendamento como concluído
-      const appointmentRef = doc(db, "agendamentos", appointment.id);
-      await updateDoc(appointmentRef, {
-        status: "concluido", // Atualiza o status para "concluído"
-      });
+  const handleCompleteAppointment = useCallback(
+    debounce(async (appointment: Appointment): Promise<void> => {
+      try {
+        const appointmentRef = doc(db, "agendamentos", appointment.id);
+        await updateDoc(appointmentRef, {
+          status: "concluido",
+        });
 
+        const transactionsRef = collection(db, "transactions");
+        await addDoc(transactionsRef, {
+          amount: appointment.servicePrice,
+          category: "Trabalho",
+          date: Date.now(),
+          description: appointment.serviceName,
+          type: "receitas",
+        });
 
-      // Enviar informações para a tabela "transactions"
-      const transactionsRef = collection(db, "transactions");
-      await addDoc(transactionsRef, {
-        amount: appointment.servicePrice, // Valor do serviço
-        category: "Trabalho", // Categoria fixa
-        date: Date.now(), 
-        description: appointment.serviceName, // Descrição do serviço
-        type: "receitas", // Tipo de transação
-      });
+        setAppointments((prevAppointments) =>
+          prevAppointments.filter((a) => a.id !== appointment.id)
+        );
+      } catch (error) {
+        console.error("Erro ao concluir agendamento:", error);
+      }
+    }, 300),
+    []
+  );
 
-      // Atualizar o estado local
-      setAppointments((prevAppointments) =>
-        prevAppointments.filter((a) => a.id !== appointment.id) // Remove o agendamento concluído da lista
-      );
-    } catch (error) {
-      console.error("Erro ao concluir agendamento:", error);
-    }
-  };
+  const filteredAppointments = useMemo(() => {
+    return appointments.filter((a) => a.status === "pendente");
+  }, [appointments]);
 
   return (
-    <Card className="w-full max-w-4xl mx-auto">
+    <Card className="w-full max-w-4xl mx-auto p-6 shadow-lg rounded-2xl bg-white">
       <CardHeader>
-        <CardTitle>Próximos Agendamentos</CardTitle>
-        <CardDescription>Visualize e gerencie os próximos atendimentos</CardDescription>
+        <CardTitle className="text-xl font-semibold text-gray-800">Próximos Agendamentos</CardTitle>
+        <CardDescription className="text-gray-500">Gerencie seus atendimentos com facilidade</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {appointments.length === 0 ? (
-            <p className="text-center text-muted-foreground">Nenhum agendamento pendente ou cancelado.</p>
+          {filteredAppointments.length === 0 ? (
+            <p className="text-center text-gray-500">Nenhum agendamento pendente.</p>
           ) : (
-            appointments.map((appointment) => (
-              <div
+            filteredAppointments.map((appointment) => (
+              <AppointmentItem
                 key={appointment.id}
-                className="flex flex-col md:flex-row items-center justify-between rounded-lg border p-4 gap-4"
-              >
-                <div className="space-y-1 flex-1">
-                  <p className="font-medium">{appointment.name}</p>
-                  <p className="text-sm text-muted-foreground">{appointment.serviceName}</p>
-                  <p className="text-sm text-muted-foreground">Status: {appointment.status}</p>
-                  {appointment.notes && (
-                    <p className="text-sm text-muted-foreground">Observações: {appointment.notes}</p>
-                  )}
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="text-right">
-                    <p className="font-medium">{formatAppointmentDate(appointment.date)}</p>
-                    <p className="text-sm text-muted-foreground">{appointment.timeSlot}</p>
-                  </div>
-                  {appointment.status === "pendente" && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 p-0"
-                      onClick={() => handleCompleteAppointment(appointment)}
-                    >
-                      <CheckCircle className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-              </div>
+                appointment={appointment}
+                formatAppointmentDate={formatAppointmentDate}
+                onComplete={handleCompleteAppointment}
+              />
             ))
           )}
         </div>
@@ -151,3 +126,32 @@ export function UpcomingAppointments() {
     </Card>
   );
 }
+
+const AppointmentItem = React.memo(
+  ({ appointment, formatAppointmentDate, onComplete }: { appointment: Appointment; formatAppointmentDate: (date: Date) => string; onComplete: (appointment: Appointment) => void }) => (
+    <div className="flex flex-col md:flex-row items-center justify-between rounded-lg border p-4 gap-4 bg-gray-50 shadow-md">
+      <div className="flex-1 space-y-2">
+        <p className="text-lg font-medium text-gray-800">{appointment.name}</p>
+        <p className="text-sm text-gray-600">{appointment.serviceName}</p>
+        <p className="text-sm text-gray-500">Status: {appointment.status}</p>
+        {appointment.notes && <p className="text-sm text-gray-500">Observações: {appointment.notes}</p>}
+      </div>
+      <div className="flex flex-col items-center gap-3 text-gray-700">
+        <p className="font-medium">{formatAppointmentDate(appointment.date)}</p>
+        <p className="text-sm">{appointment.timeSlot}</p>
+        {appointment.status === "pendente" && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-10 w-24 flex items-center justify-center gap-2 border-green-500 text-green-600 hover:bg-green-100"
+            onClick={() => onComplete(appointment)}
+          >
+            <CheckCircle className="h-5 w-5" /> Concluir
+          </Button>
+        )}
+      </div>
+    </div>
+  )
+);
+
+AppointmentItem.displayName = "AppointmentItem";
