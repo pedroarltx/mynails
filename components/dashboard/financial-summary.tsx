@@ -21,7 +21,7 @@ interface Transaction {
   type: "receitas" | "despesa"
 }
 
-const categories = ["Alimentação", "Transporte", "Lazer", "Material Estoque", "Contas", ]
+const categories = ["Alimentação", "Transporte", "Lazer", "Material Estoque", "Contas","Receitas" ]
 
 export function FinancialSummary() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
@@ -35,7 +35,7 @@ export function FinancialSummary() {
 
   useEffect(() => {
     const transactionsRef = collection(db, "transactions")
-    const q = query(transactionsRef, orderBy("date", "desc"), limit(5))
+    const q = query(transactionsRef, orderBy("date", "desc"))
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const transactionsData: Transaction[] = querySnapshot.docs.map((doc) => ({

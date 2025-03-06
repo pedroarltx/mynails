@@ -41,6 +41,7 @@ export function TransactionDialog({
     "Lazer",
     "Material Estoque",
     "Contas Fixas",
+    "Receitas",
   ];
 
   const handleSubmit = (e: React.FormEvent) => {

@@ -89,7 +89,7 @@ export function OverviewCards() {
 
   useEffect(() => {
     const transactionsRef = collection(db, "transactions");
-    const q = query(transactionsRef, orderBy("date", "desc"), limit(5));
+    const q = query(transactionsRef, orderBy("date", "desc"));
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const transactionsData: Transaction[] = querySnapshot.docs.map((doc) => ({
