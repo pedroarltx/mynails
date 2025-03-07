@@ -4,12 +4,13 @@ interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
   title: string;
+  description?: string; // Add description as an optional prop
   children: React.ReactNode;
 }
 
-export function Modal({ isOpen, onClose, title, children }: ModalProps) {
+export function Modal({ isOpen, onClose, title, children, description}: ModalProps) {
   return (
-    <Dialog.Root open={isOpen} onOpenChange={onClose}>
+    <Dialog.Root open={isOpen} onOpenChange={onClose} >
       <Dialog.Portal>
         {/* Overlay */}
         <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm" />

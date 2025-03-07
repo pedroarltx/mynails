@@ -7,6 +7,10 @@ import { SiteHeader } from "@/components/layout/site-header"
 import { SiteFooter } from "@/components/layout/site-footer"
 
 export default function Home() {
+  if (process.env.NODE_ENV === 'production') {
+    console.log = () => {};
+  }
+  
   return (
     <SiteLayout>
       <SiteHeader />

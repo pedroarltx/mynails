@@ -91,7 +91,6 @@ export function UpcomingAppointments() {
           prevAppointments.filter((a) => a.id !== appointment.id)
         );
       } catch (error) {
-        console.error("Erro ao concluir agendamento:", error);
       }
     }, 300),
     []

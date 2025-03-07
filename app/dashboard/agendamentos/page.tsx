@@ -110,7 +110,6 @@ export default function AgendamentosPage() {
   const [view, setView] = useState<"dia" | "semana" | "mes">("dia")
   const [allAppointments, setAllAppointments] = useState<Appointment[]>([])
   const [isPopoverOpen, setIsPopoverOpen] = useState(false)
-  const [isCalendarOpen, setIsCalendarOpen] = useState(false)
   const [clients, setClients] = useState<Client[]>([])
   const [services, setServices] = useState<Service[]>([])
   const [isAppointmentModalOpen, setIsAppointmentModalOpen] = useState(false)
@@ -253,7 +252,6 @@ export default function AgendamentosPage() {
         handleCloseAppointmentModal()
         resetAppointment()
       } catch (error) {
-        console.error("Erro ao criar agendamento:", error)
         toast.error("Ocorreu um erro ao criar o agendamento. Tente novamente.")
       }
     },
@@ -274,7 +272,6 @@ export default function AgendamentosPage() {
         handleCloseAppointmentModal()
         setEditingAppointment(null)
       } catch (error) {
-        console.error("Erro ao atualizar agendamento:", error)
         toast.error("Erro ao atualizar agendamento. Tente novamente.")
       }
     },
@@ -309,7 +306,6 @@ export default function AgendamentosPage() {
         toast.success("Cliente cadastrado com sucesso!")
         handleCloseClientModal()
       } catch (error) {
-        console.error("Erro ao cadastrar cliente:", error)
         toast.error("Erro ao cadastrar cliente. Tente novamente.")
       }
     },
@@ -328,7 +324,6 @@ export default function AgendamentosPage() {
         setIsServiceModalOpen(false)
         resetService()
       } catch (error) {
-        console.error("Erro ao cadastrar serviço:", error)
         toast.error("Erro ao cadastrar serviço. Tente novamente.")
       }
     },
@@ -371,7 +366,6 @@ export default function AgendamentosPage() {
         })
         toast.success("Agendamento cancelado com sucesso!")
       } catch (error) {
-        console.error("Erro ao cancelar agendamento:", error)
         toast.error("Erro ao cancelar agendamento. Tente novamente.")
       }
     }
@@ -441,6 +435,29 @@ export default function AgendamentosPage() {
     [],
   )
 
+  // Modificar a função que abre o modal de cliente
+  const handleOpenClientModal = useCallback(() => {
+    setIsSelectClientModalOpen(true)
+  }, [])
+
+  // Função para abrir o modal de novo cliente
+  const handleOpenNewClientModal = useCallback(() => {
+    setIsSelectClientModalOpen(false)
+    setIsClientModalOpen(true)
+  }, [])
+
+  // Função para selecionar um cliente existente
+  const handleSelectExistingClient = useCallback(
+    (client: Client) => {
+      // Lógica para selecionar o cliente
+      setValue("name", client.name)
+      setValue("email", client.email)
+      setValue("phone", client.phone)
+      setIsSelectClientModalOpen(false)
+    },
+    [setValue],
+  )
+
   return (
     <ProtectedRoute>
       <DashboardLayout title="Agendamentos">
@@ -473,6 +490,7 @@ export default function AgendamentosPage() {
             isOpen={isAppointmentModalOpen}
             onClose={handleCloseAppointmentModal}
             title={editingAppointment ? "Editar Agendamento" : "Novo Agendamento"}
+            description="Preencha os detalhes do agendamento"
           >
             <form onSubmit={handleSubmitAppointment(onSubmitAppointment)} className="space-y-4">
               {/* Campo do Cliente */}
@@ -484,14 +502,16 @@ export default function AgendamentosPage() {
                   render={({ field }) => (
                     <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
                       <PopoverTrigger asChild>
-                        <Button variant="outline" className="w-full justify-start text-left font-normal">
-                          <User className="mr-2 h-4 w-4" />
-                          {field.value ?? "Selecione um cliente"}
-                        </Button>
+                        <div className="w-full">
+                          <Button variant="outline" className="w-full justify-start text-left font-normal">
+                            <User className="mr-2 h-4 w-4" />
+                            {field.value ?? "Selecione um cliente"}
+                          </Button>
+                        </div>
                       </PopoverTrigger>
                       <PopoverContent className="w-[300px] p-0">
                         <div className="p-2">
-                          <Input placeholder="Buscar cliente..." onChange={(e) => setSearchQuery(e.target.value)} />
+                          <Input placeholder="Buscar cliente..." onChange={(e) => handleSearch(e.target.value)} />
                         </div>
                         <div className="max-h-[200px] overflow-y-auto">
                           {searchClients(searchQuery).map((client) => (
@@ -499,11 +519,10 @@ export default function AgendamentosPage() {
                               key={client.id}
                               className="p-2 hover:bg-gray-100 cursor-pointer"
                               onClick={() => {
-                                field.onChange(client.name) // Define o nome do cliente
-                                setValue("email", client.email) // Define o email
-                                setValue("phone", client.phone) // Define o telefone
-                                setSearchQuery("") // Limpa a busca
-                                setIsPopoverOpen(false) // Fecha o Popover
+                                handleSelectExistingClient(client)
+                                field.onChange(client.name)
+                                setSearchQuery("")
+                                setIsPopoverOpen(false)
                               }}
                             >
                               <p className="font-medium">{client.name}</p>
@@ -512,15 +531,7 @@ export default function AgendamentosPage() {
                           ))}
                         </div>
                         <div className="p-2 border-t">
-                          <Button
-                            variant="outline"
-                            className="w-full"
-                            onClick={() => {
-                              setIsClientModalOpen(true)
-                              setSearchQuery("")
-                              setIsPopoverOpen(false) // Fecha o Popover
-                            }}
-                          >
+                          <Button variant="outline" className="w-full" onClick={handleOpenNewClientModal}>
                             <Plus className="mr-2 h-4 w-4" />
                             Novo Cliente
                           </Button>
@@ -692,35 +703,45 @@ export default function AgendamentosPage() {
           </Modal>
 
           {/* Modal de Seleção de Cliente */}
-          <Modal isOpen={isSelectClientModalOpen} onClose={handleCloseSelectClientModal} title="Selecionar Cliente">
+          <Modal
+            isOpen={isSelectClientModalOpen}
+            onClose={handleCloseSelectClientModal}
+            title="Selecionar Cliente"
+            description="Escolha um cliente existente ou crie um novo"
+          >
             <div className="space-y-4">
-              <div className="space-y-2">
-                <h3 className="text-lg font-semibold">Últimos Agendamentos</h3>
-                {allAppointments.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Nenhum atendimento recente encontrado.</p>
-                ) : (
-                  allAppointments
-                    .filter(
-                      (appointment, index, self) => index === self.findIndex((a) => a.email === appointment.email),
-                    )
-                    .map((appointment, index) => (
-                      <div key={index} className="flex items-center justify-between p-2 border rounded">
-                        <div>
-                          <p className="font-medium">{appointment.name}</p>
-                          <p className="text-sm text-muted-foreground">{appointment.email}</p>
-                        </div>
-                        <Button size="sm" onClick={() => handleSelectClientFromAppointments(appointment)}>
-                          Selecionar
-                        </Button>
-                      </div>
-                    ))
-                )}
+              <Input placeholder="Buscar cliente..." onChange={(e) => handleSearch(e.target.value)} />
+              <div className="max-h-60 overflow-y-auto">
+                {searchClients(searchQuery).map((client) => (
+                  <div
+                    key={client.id}
+                    className="flex items-center justify-between p-2 hover:bg-gray-100 cursor-pointer"
+                    onClick={() => handleSelectExistingClient(client)}
+                  >
+                    <div>
+                      <p className="font-medium">{client.name}</p>
+                      <p className="text-sm text-muted-foreground">{client.email}</p>
+                    </div>
+                    <Button size="sm">Selecionar</Button>
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-end mt-4">
+                <Button onClick={handleOpenNewClientModal}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Novo Cliente
+                </Button>
               </div>
             </div>
           </Modal>
 
           {/* Modal de Novo Cliente */}
-          <Modal isOpen={isClientModalOpen} onClose={handleCloseClientModal} title="Novo Cliente">
+          <Modal
+            isOpen={isClientModalOpen}
+            onClose={handleCloseClientModal}
+            title="Novo Cliente"
+            description="Preencha os detalhes do novo cliente"
+          >
             <form onSubmit={handleSubmitClient(onSubmitClient)} className="space-y-4">
               <div className="space-y-2">
                 <label htmlFor="name">Nome</label>
@@ -824,7 +845,12 @@ export default function AgendamentosPage() {
           </Modal>
 
           {/* Modal de Novo Serviço */}
-          <Modal isOpen={isServiceModalOpen} onClose={() => setIsServiceModalOpen(false)} title="Novo Serviço">
+          <Modal
+            isOpen={isServiceModalOpen}
+            onClose={() => setIsServiceModalOpen(false)}
+            title="Novo Serviço"
+            description="Adicione um novo serviço"
+          >
             <form onSubmit={handleSubmitService(onSubmitService)} className="space-y-4">
               <div className="space-y-2">
                 <label htmlFor="name">Nome do Serviço</label>

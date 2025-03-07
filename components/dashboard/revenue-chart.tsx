@@ -58,8 +58,6 @@ export function RevenueChart() {
         });
       }
 
-      console.log("Dados de receita mensal:", revenueData); // Verifique os dados aqui
-
       setMonthlyRevenue(revenueData);
     };
 

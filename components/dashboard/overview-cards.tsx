@@ -80,7 +80,6 @@ export function OverviewCards() {
         setAppointmentsGrowth(calculateGrowth(currentMonthAppointments.size, lastAppointments));
         setClientsGrowth(calculateGrowth(currentClients, lastClients));
       } catch (error) {
-        console.error("Erro ao calcular métricas:", error);
       }
     };
 
