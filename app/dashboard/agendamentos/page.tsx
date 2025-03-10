@@ -501,43 +501,54 @@ export default function AgendamentosPage() {
                   control={controlAppointment}
                   render={({ field }) => (
                     <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
-                      <PopoverTrigger asChild>
-                        <div className="w-full">
-                          <Button variant="outline" className="w-full justify-start text-left font-normal">
-                            <User className="mr-2 h-4 w-4" />
-                            {field.value ?? "Selecione um cliente"}
-                          </Button>
-                        </div>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-[300px] p-0">
-                        <div className="p-2">
-                          <Input placeholder="Buscar cliente..." onChange={(e) => handleSearch(e.target.value)} />
-                        </div>
-                        <div className="max-h-[200px] overflow-y-auto">
-                          {searchClients(searchQuery).map((client) => (
-                            <div
-                              key={client.id}
-                              className="p-2 hover:bg-gray-100 cursor-pointer"
-                              onClick={() => {
-                                handleSelectExistingClient(client)
-                                field.onChange(client.name)
-                                setSearchQuery("")
-                                setIsPopoverOpen(false)
-                              }}
-                            >
-                              <p className="font-medium">{client.name}</p>
-                              <p className="text-sm text-muted-foreground">{client.email}</p>
-                            </div>
-                          ))}
-                        </div>
-                        <div className="p-2 border-t">
-                          <Button variant="outline" className="w-full" onClick={handleOpenNewClientModal}>
-                            <Plus className="mr-2 h-4 w-4" />
-                            Novo Cliente
-                          </Button>
-                        </div>
-                      </PopoverContent>
-                    </Popover>
+  <PopoverTrigger asChild>
+    <Button
+      variant="outline"
+      className="w-full justify-start text-left font-normal"
+      onClick={() => setIsPopoverOpen(true)} // Abre o Popover ao clicar
+    >
+      <User className="mr-2 h-4 w-4" />
+      {field.value ?? "Selecione um cliente"}
+    </Button>
+  </PopoverTrigger>
+  <PopoverContent className="w-[300px] p-0">
+    <div className="p-2">
+      <Input
+        placeholder="Buscar cliente..."
+        onChange={(e) => handleSearch(e.target.value)}
+      />
+    </div>
+    <div className="max-h-[200px] overflow-y-auto">
+      {searchClients(searchQuery).map((client) => (
+        <div
+          key={client.id}
+          className="p-2 hover:bg-gray-100 cursor-pointer"
+          onClick={() => {
+            handleSelectExistingClient(client);
+            field.onChange(client.name);
+            setValue("email", client.email);
+            setValue("phone", client.phone);
+            setSearchQuery("");
+            setIsPopoverOpen(false); // Fecha o Popover após a seleção
+          }}
+        >
+          <p className="font-medium">{client.name}</p>
+          <p className="text-sm text-muted-foreground">{client.email}</p>
+        </div>
+      ))}
+    </div>
+    <div className="p-2 border-t">
+      <Button
+        variant="outline"
+        className="w-full"
+        onClick={handleOpenNewClientModal}
+      >
+        <Plus className="mr-2 h-4 w-4" />
+        Novo Cliente
+      </Button>
+    </div>
+  </PopoverContent>
+</Popover>
                   )}
                 />
               </div>
