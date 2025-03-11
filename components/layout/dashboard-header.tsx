@@ -33,6 +33,7 @@ export function DashboardHeader({
     { label: "Dashboard", href: "/dashboard" },
     { label: "Agendamentos", href: "/dashboard/agendamentos" },
     { label: "Finanças", href: "/dashboard/financas" },
+    { label: "Serviços", href: "/dashboard/services" },
   ],
   onLogout = () => console.log("Logout clicked"),
 }: NavbarProps) {
