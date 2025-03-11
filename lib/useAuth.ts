@@ -11,7 +11,7 @@ export function useAuth() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      console.log("Usuário autenticado:", user); // Log para depuração
+    
       if (user) {
         setUser(user);
       } else {

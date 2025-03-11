@@ -14,11 +14,10 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   const router = useRouter();
 
   useEffect(() => {
-    console.log("Estado do usuário:", user); // Log para depuração
-    console.log("Carregando:", loading); // Log para depuração
+    
 
     if (!loading && !user) {
-      console.log("Usuário não autenticado. Redirecionando para /login..."); // Log para depuração
+     
       router.push("/login");
     }
   }, [user, loading, router]);

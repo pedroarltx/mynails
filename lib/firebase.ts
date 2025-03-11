@@ -25,7 +25,7 @@ if (!getApps().length) {
   // Configura a persistência de autenticação como SESSION
   setPersistence(auth, browserSessionPersistence)
     .then(() => {
-      console.log("Persistência de autenticação configurada como SESSION.");
+      
     })
     .catch((error) => {
       console.error("Erro ao configurar persistência de autenticação:", error);
