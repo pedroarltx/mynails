@@ -1,7 +1,7 @@
-"use client"
+"use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react"
-import ProtectedRoute from "@/hooks/protected-route"
+import { useState, useEffect, useMemo, useCallback } from "react";
+import ProtectedRoute from "@/hooks/protected-route";
 import {
   CalendarIcon,
   ChevronLeft,
@@ -12,34 +12,64 @@ import {
   Plus,
   Search,
   User,
-} from "lucide-react"
-import * as dateFns from "date-fns"
-import { ptBR } from "date-fns/locale"
-import { DashboardLayout } from "@/components/layout/dashboard-layout"
-import { Button } from "@/components/ui/button"
-import { Calendar } from "@/components/ui/calendar"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+} from "lucide-react";
+import * as dateFns from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { DashboardLayout } from "@/components/layout/dashboard-layout";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Input } from "@/components/ui/input"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { collection, onSnapshot, addDoc, updateDoc, doc, Timestamp } from "firebase/firestore"
-import { db } from "@/lib/firebase"
-import { Modal } from "@/components/ui/modal"
-import { z } from "zod"
-import { useForm, Controller } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { ToastContainer, toast } from "react-toastify"
-import "react-toastify/dist/ReactToastify.css"
-import { debounce } from "lodash"
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  collection,
+  onSnapshot,
+  addDoc,
+  updateDoc,
+  doc,
+  Timestamp,
+} from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { Modal } from "@/components/ui/modal";
+import { z } from "zod";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import { debounce } from "lodash";
 
 // Esquema de validação para Agendamento
 const appointmentSchema = z.object({
@@ -52,7 +82,7 @@ const appointmentSchema = z.object({
   notes: z.string().optional(),
   status: z.string().optional(),
   createdAt: z.string().optional(),
-})
+});
 
 // Esquema de validação para Cliente
 const clientSchema = z.object({
@@ -60,64 +90,65 @@ const clientSchema = z.object({
   email: z.string().email("Email inválido"),
   phone: z.string().min(1, "O telefone é obrigatório"),
   lastAppointment: z.date().optional(),
-})
+});
 
 // Esquema de validação para Serviço
 const serviceSchema = z.object({
   name: z.string().min(1, "O nome do serviço é obrigatório"),
   duration: z.number().min(1, "A duração é obrigatória"),
   price: z.number().min(0, "O preço é obrigatório"),
-})
+});
 
 // Tipos inferidos a partir dos esquemas Zod
-type AppointmentFormData = z.infer<typeof appointmentSchema>
-type ClientFormData = z.infer<typeof clientSchema>
-type ServiceFormData = z.infer<typeof serviceSchema>
+type AppointmentFormData = z.infer<typeof appointmentSchema>;
+type ClientFormData = z.infer<typeof clientSchema>;
+type ServiceFormData = z.infer<typeof serviceSchema>;
 
 // Interface para Agendamento
 interface Appointment {
-  id: string
-  name: string
-  email: string
-  phone: string
-  serviceName: string
-  date: Date
-  timeSlot: string
-  notes?: string
-  status: string
-  createdAt: Timestamp
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  serviceName: string;
+  date: Date;
+  timeSlot: string;
+  notes?: string;
+  status: string;
+  createdAt: Timestamp;
 }
 
 // Interface para Cliente
 interface Client {
-  id: string
-  name: string
-  email: string
-  phone: string
-  lastAppointment?: Date
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  lastAppointment?: Date;
 }
 
 // Interface para Serviço
 interface Service {
-  id: string
-  title: string
-  duration: number
-  price: number
+  id: string;
+  title: string;
+  duration: number;
+  price: number;
 }
 
 export default function AgendamentosPage() {
-  const [date, setDate] = useState<Date | undefined>(new Date())
-  const [view, setView] = useState<"dia" | "semana" | "mes">("dia")
-  const [allAppointments, setAllAppointments] = useState<Appointment[]>([])
-  const [isPopoverOpen, setIsPopoverOpen] = useState(false)
-  const [clients, setClients] = useState<Client[]>([])
-  const [services, setServices] = useState<Service[]>([])
-  const [isAppointmentModalOpen, setIsAppointmentModalOpen] = useState(false)
-  const [isClientModalOpen, setIsClientModalOpen] = useState(false)
-  const [isServiceModalOpen, setIsServiceModalOpen] = useState(false)
-  const [isSelectClientModalOpen, setIsSelectClientModalOpen] = useState(false)
-  const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null)
-  const [searchQuery, setSearchQuery] = useState("")
+  const [date, setDate] = useState<Date | undefined>(new Date());
+  const [view, setView] = useState<"dia" | "semana" | "mes">("dia");
+  const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
+  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
+  const [isAppointmentModalOpen, setIsAppointmentModalOpen] = useState(false);
+  const [isClientModalOpen, setIsClientModalOpen] = useState(false);
+  const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
+  const [isSelectClientModalOpen, setIsSelectClientModalOpen] = useState(false);
+  const [editingAppointment, setEditingAppointment] =
+    useState<Appointment | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Formulário de Agendamento
   const {
@@ -129,7 +160,7 @@ export default function AgendamentosPage() {
     formState: { errors: appointmentErrors },
   } = useForm<AppointmentFormData>({
     resolver: zodResolver(appointmentSchema),
-  })
+  });
 
   // Formulário de Cliente
   const {
@@ -140,7 +171,7 @@ export default function AgendamentosPage() {
     formState: { errors: clientErrors },
   } = useForm<ClientFormData>({
     resolver: zodResolver(clientSchema),
-  })
+  });
 
   // Formulário de Serviço
   const {
@@ -150,88 +181,108 @@ export default function AgendamentosPage() {
     formState: { errors: serviceErrors },
   } = useForm<ServiceFormData>({
     resolver: zodResolver(serviceSchema),
-  })
+  });
 
   //  !data
   const generateDateOptions = useCallback(() => {
-    const today = new Date()
-    const days = Array.from({ length: 31 }, (_, i) => i + 1)
-    const months = Array.from({ length: 12 }, (_, i) => i + 1)
-    const years = Array.from({ length: 5 }, (_, i) => today.getFullYear() + i)
-    return { days, months, years }
-  }, [])
+    const today = new Date();
+    const days = Array.from({ length: 31 }, (_, i) => i + 1);
+    const months = Array.from({ length: 12 }, (_, i) => i + 1);
+    const years = Array.from({ length: 5 }, (_, i) => today.getFullYear() + i);
+    return { days, months, years };
+  }, []);
 
-  const { days, months, years } = useMemo(() => generateDateOptions(), [generateDateOptions])
+  const { days, months, years } = useMemo(
+    () => generateDateOptions(),
+    [generateDateOptions]
+  );
 
   // Horários disponíveis
   const timeSlots = useMemo(
-    () => ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00"],
-    [],
-  )
+    () => [
+      "08:00",
+      "09:00",
+      "10:00",
+      "11:00",
+      "12:00",
+      "13:00",
+      "14:00",
+      "15:00",
+      "16:00",
+      "17:00",
+      "18:00",
+    ],
+    []
+  );
 
   // Buscar agendamentos do Firebase
   useEffect(() => {
-    const agendamentosRef = collection(db, "agendamentos")
-    const unsubscribeAgendamentos = onSnapshot(agendamentosRef, (querySnapshot) => {
-      const appointments = querySnapshot.docs.map((doc) => {
-        const data = doc.data()
-        return {
-          id: doc.id,
-          ...data,
-          date: data.date?.toDate ? data.date.toDate() : new Date(),
-        } as Appointment
-      })
-      setAllAppointments(appointments)
-    })
+    const agendamentosRef = collection(db, "agendamentos");
+    const unsubscribeAgendamentos = onSnapshot(
+      agendamentosRef,
+      (querySnapshot) => {
+        const appointments = querySnapshot.docs.map((doc) => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            ...data,
+            date: data.date?.toDate ? data.date.toDate() : new Date(),
+          } as Appointment;
+        });
+        setAllAppointments(appointments);
+      }
+    );
 
-    return () => unsubscribeAgendamentos()
-  }, [])
+    return () => unsubscribeAgendamentos();
+  }, []);
 
   // Buscar clientes do Firebase
   useEffect(() => {
-    const clientesRef = collection(db, "clientes")
+    const clientesRef = collection(db, "clientes");
     const unsubscribeClientes = onSnapshot(clientesRef, (querySnapshot) => {
       const clientes = querySnapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
         lastAppointment: doc.data().lastAppointment?.toDate(),
-      })) as Client[]
-      setClients(clientes)
-    })
+      })) as Client[];
+      setClients(clientes);
+    });
 
-    return () => unsubscribeClientes()
-  }, [])
+    return () => unsubscribeClientes();
+  }, []);
 
   // Buscar serviços do Firebase
   useEffect(() => {
-    const servicesRef = collection(db, "services")
+    const servicesRef = collection(db, "services");
     const unsubscribeServices = onSnapshot(servicesRef, (querySnapshot) => {
       const services = querySnapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
-      })) as Service[]
-      setServices(services)
-    })
+      })) as Service[];
+      setServices(services);
+    });
 
-    return () => unsubscribeServices()
-  }, [])
+    return () => unsubscribeServices();
+  }, []);
 
   // Fechar modal de agendamento
   const handleCloseAppointmentModal = useCallback(() => {
-    setIsAppointmentModalOpen(false)
-    resetAppointment()
-    setEditingAppointment(null)
-  }, [resetAppointment])
+    setIsAppointmentModalOpen(false);
+    resetAppointment();
+    setEditingAppointment(null);
+  }, [resetAppointment]);
 
   // Salvar novo agendamento
   const onSubmitAppointment = useCallback(
     async (data: AppointmentFormData) => {
       try {
-        const { name, email, phone, notes, serviceName, date, timeSlot } = data
-        const selectedService = services.find((service) => service.title === serviceName)
+        const { name, email, phone, notes, serviceName, date, timeSlot } = data;
+        const selectedService = services.find(
+          (service) => service.title === serviceName
+        );
 
         if (!selectedService) {
-          throw new Error("Serviço não encontrado.")
+          throw new Error("Serviço não encontrado.");
         }
 
         const agendamento = {
@@ -246,48 +297,48 @@ export default function AgendamentosPage() {
           timeSlot,
           createdAt: Timestamp.fromDate(new Date()),
           status: "pendente",
-        }
+        };
 
-        await addDoc(collection(db, "agendamentos"), agendamento)
-        handleCloseAppointmentModal()
-        resetAppointment()
+        await addDoc(collection(db, "agendamentos"), agendamento);
+        handleCloseAppointmentModal();
+        resetAppointment();
       } catch (error) {
-        toast.error("Ocorreu um erro ao criar o agendamento. Tente novamente.")
+        toast.error("Ocorreu um erro ao criar o agendamento. Tente novamente.");
       }
     },
-    [services, handleCloseAppointmentModal, resetAppointment],
-  )
+    [services, handleCloseAppointmentModal, resetAppointment]
+  );
 
   // Atualizar agendamento
   const handleUpdateAppointment = useCallback(
     async (data: AppointmentFormData) => {
-      if (!editingAppointment) return
+      if (!editingAppointment) return;
 
       try {
         await updateDoc(doc(db, "agendamentos", editingAppointment.id), {
           ...data,
           date: Timestamp.fromDate(data.date),
-        })
-        toast.success("Agendamento atualizado com sucesso!")
-        handleCloseAppointmentModal()
-        setEditingAppointment(null)
+        });
+        toast.success("Agendamento atualizado com sucesso!");
+        handleCloseAppointmentModal();
+        setEditingAppointment(null);
       } catch (error) {
-        toast.error("Erro ao atualizar agendamento. Tente novamente.")
+        toast.error("Erro ao atualizar agendamento. Tente novamente.");
       }
     },
-    [editingAppointment, handleCloseAppointmentModal],
-  )
+    [editingAppointment, handleCloseAppointmentModal]
+  );
 
   // Fechar modal de seleção de cliente
   const handleCloseSelectClientModal = useCallback(() => {
-    setIsSelectClientModalOpen(false)
-  }, [])
+    setIsSelectClientModalOpen(false);
+  }, []);
 
   // Fechar modal de cliente
   const handleCloseClientModal = useCallback(() => {
-    setIsClientModalOpen(false)
-    resetClient()
-  }, [resetClient])
+    setIsClientModalOpen(false);
+    resetClient();
+  }, [resetClient]);
 
   // Salvar novo cliente
   const onSubmitClient = useCallback(
@@ -300,17 +351,17 @@ export default function AgendamentosPage() {
             lastAppointment: Timestamp.fromDate(data.lastAppointment),
           }),
           createdAt: new Date().toISOString(),
-        }
+        };
 
-        await addDoc(collection(db, "clientes"), clientData)
-        toast.success("Cliente cadastrado com sucesso!")
-        handleCloseClientModal()
+        await addDoc(collection(db, "clientes"), clientData);
+        toast.success("Cliente cadastrado com sucesso!");
+        handleCloseClientModal();
       } catch (error) {
-        toast.error("Erro ao cadastrar cliente. Tente novamente.")
+        toast.error("Erro ao cadastrar cliente. Tente novamente.");
       }
     },
-    [handleCloseClientModal],
-  )
+    [handleCloseClientModal]
+  );
 
   // Salvar novo serviço
   const onSubmitService = useCallback(
@@ -319,16 +370,16 @@ export default function AgendamentosPage() {
         await addDoc(collection(db, "services"), {
           ...data,
           createdAt: new Date().toISOString(),
-        })
-        toast.success("Serviço cadastrado com sucesso!")
-        setIsServiceModalOpen(false)
-        resetService()
+        });
+        toast.success("Serviço cadastrado com sucesso!");
+        setIsServiceModalOpen(false);
+        resetService();
       } catch (error) {
-        toast.error("Erro ao cadastrar serviço. Tente novamente.")
+        toast.error("Erro ao cadastrar serviço. Tente novamente.");
       }
     },
-    [resetService],
-  )
+    [resetService]
+  );
 
   // Função para selecionar um cliente a partir dos últimos agendamentos
   const handleSelectClientFromAppointments = useCallback(
@@ -337,25 +388,26 @@ export default function AgendamentosPage() {
         name: appointment.name,
         email: appointment.email,
         phone: appointment.phone,
-      })
-      setIsSelectClientModalOpen(false)
-      setIsClientModalOpen(true)
+      });
+      setIsSelectClientModalOpen(false);
+      setIsClientModalOpen(true);
     },
-    [resetClient],
-  )
+    [resetClient]
+  );
 
   // Verificar se o horário está disponível
   const isTimeSlotAvailable = useCallback(
     (selectedDate: Date, timeSlot: string) => {
       return !allAppointments.some(
         (appointment) =>
-          dateFns.format(appointment.date, "yyyy-MM-dd") === dateFns.format(selectedDate, "yyyy-MM-dd") &&
+          dateFns.format(appointment.date, "yyyy-MM-dd") ===
+            dateFns.format(selectedDate, "yyyy-MM-dd") &&
           appointment.timeSlot === timeSlot &&
-          appointment.status !== "cancelado",
-      )
+          appointment.status !== "cancelado"
+      );
     },
-    [allAppointments],
-  )
+    [allAppointments]
+  );
 
   // Cancelar agendamento
   const handleCancelAppointment = useCallback(async (appointmentId: string) => {
@@ -363,13 +415,13 @@ export default function AgendamentosPage() {
       try {
         await updateDoc(doc(db, "agendamentos", appointmentId), {
           status: "cancelado",
-        })
-        toast.success("Agendamento cancelado com sucesso!")
+        });
+        toast.success("Agendamento cancelado com sucesso!");
       } catch (error) {
-        toast.error("Erro ao cancelar agendamento. Tente novamente.")
+        toast.error("Erro ao cancelar agendamento. Tente novamente.");
       }
     }
-  }, [])
+  }, []);
 
   // Buscar clientes por nome ou email
   const searchClients = useCallback(
@@ -377,11 +429,11 @@ export default function AgendamentosPage() {
       return clients.filter(
         (client) =>
           client.name.toLowerCase().includes(query.toLowerCase()) ||
-          client.email.toLowerCase().includes(query.toLowerCase()),
-      )
+          client.email.toLowerCase().includes(query.toLowerCase())
+      );
     },
-    [clients],
-  )
+    [clients]
+  );
 
   // Obter horários disponíveis para o dia selecionado
   const getAvailableTimeSlots = useCallback(
@@ -389,74 +441,77 @@ export default function AgendamentosPage() {
       const occupiedSlots = allAppointments
         .filter(
           (appointment) =>
-            dateFns.format(appointment.date, "yyyy-MM-dd") === dateFns.format(selectedDate, "yyyy-MM-dd") &&
-            appointment.status !== "cancelado",
+            dateFns.format(appointment.date, "yyyy-MM-dd") ===
+              dateFns.format(selectedDate, "yyyy-MM-dd") &&
+            appointment.status !== "cancelado"
         )
-        .map((appointment) => appointment.timeSlot)
+        .map((appointment) => appointment.timeSlot);
 
-      return timeSlots.filter((slot) => !occupiedSlots.includes(slot))
+      return timeSlots.filter((slot) => !occupiedSlots.includes(slot));
     },
-    [allAppointments, timeSlots],
-  )
+    [allAppointments, timeSlots]
+  );
 
   // Filtro de agendamentos
   const filteredAppointments = useMemo(() => {
     if (view === "dia" && date) {
       return allAppointments.filter(
-        (appointment) => dateFns.format(appointment.date, "yyyy-MM-dd") === dateFns.format(date, "yyyy-MM-dd"),
-      )
+        (appointment) =>
+          dateFns.format(appointment.date, "yyyy-MM-dd") ===
+          dateFns.format(date, "yyyy-MM-dd")
+      );
     } else if (view === "semana" && date) {
-      const startOfWeekDate = dateFns.startOfWeek(date, { weekStartsOn: 0 })
-      const endOfWeekDate = dateFns.endOfWeek(date, { weekStartsOn: 0 })
+      const startOfWeekDate = dateFns.startOfWeek(date, { weekStartsOn: 0 });
+      const endOfWeekDate = dateFns.endOfWeek(date, { weekStartsOn: 0 });
       return allAppointments.filter((appointment) =>
         dateFns.isWithinInterval(appointment.date, {
           start: startOfWeekDate,
           end: endOfWeekDate,
-        }),
-      )
+        })
+      );
     } else if (view === "mes" && date) {
-      const startOfMonthDate = dateFns.startOfMonth(date)
-      const endOfMonthDate = dateFns.endOfMonth(date)
+      const startOfMonthDate = dateFns.startOfMonth(date);
+      const endOfMonthDate = dateFns.endOfMonth(date);
       return allAppointments.filter((appointment) =>
         dateFns.isWithinInterval(appointment.date, {
           start: startOfMonthDate,
           end: endOfMonthDate,
-        }),
-      )
+        })
+      );
     }
-    return []
-  }, [allAppointments, date, view])
+    return [];
+  }, [allAppointments, date, view]);
 
   // Debounced search
   const handleSearch = useCallback(
     debounce((query: string) => {
-      setSearchQuery(query)
+      setSearchQuery(query);
     }, 300),
-    [],
-  )
+    []
+  );
 
   // Modificar a função que abre o modal de cliente
   const handleOpenClientModal = useCallback(() => {
-    setIsSelectClientModalOpen(true)
-  }, [])
+    setIsSelectClientModalOpen(true);
+  }, []);
 
   // Função para abrir o modal de novo cliente
   const handleOpenNewClientModal = useCallback(() => {
-    setIsSelectClientModalOpen(false)
-    setIsClientModalOpen(true)
-  }, [])
+    setIsSelectClientModalOpen(false);
+    setIsClientModalOpen(true);
+  }, []);
 
   // Função para selecionar um cliente existente
   const handleSelectExistingClient = useCallback(
     (client: Client) => {
       // Lógica para selecionar o cliente
-      setValue("name", client.name)
-      setValue("email", client.email)
-      setValue("phone", client.phone)
-      setIsSelectClientModalOpen(false)
+      setValue("name", client.name);
+      setValue("email", client.email);
+      setValue("phone", client.phone);
+      setIsSelectClientModalOpen(false);
     },
-    [setValue],
-  )
+    [setValue]
+  );
 
   return (
     <ProtectedRoute>
@@ -469,14 +524,24 @@ export default function AgendamentosPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="w-full md:w-[240px] justify-start text-left font-normal mb-4 md:mb-0"
+                  className="w-full justify-start text-left font-normal mb-4 md:mb-0"
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {date ? dateFns.format(date, "PPP", { locale: ptBR }) : <span>Selecione uma data</span>}
+                  {date ? (
+                    dateFns.format(date, "PPP", { locale: ptBR })
+                  ) : (
+                    <span>Selecione uma data</span>
+                  )}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0">
-                <Calendar mode="single" selected={date} onSelect={setDate} initialFocus locale={ptBR} />
+                <Calendar
+                  mode="single"
+                  selected={date}
+                  onSelect={setDate}
+                  initialFocus
+                  locale={ptBR}
+                />
               </PopoverContent>
             </Popover>
             <Button size="sm" onClick={() => setIsAppointmentModalOpen(true)}>
@@ -489,10 +554,15 @@ export default function AgendamentosPage() {
           <Modal
             isOpen={isAppointmentModalOpen}
             onClose={handleCloseAppointmentModal}
-            title={editingAppointment ? "Editar Agendamento" : "Novo Agendamento"}
+            title={
+              editingAppointment ? "Editar Agendamento" : "Novo Agendamento"
+            }
             description="Preencha os detalhes do agendamento"
           >
-            <form onSubmit={handleSubmitAppointment(onSubmitAppointment)} className="space-y-4">
+            <form
+              onSubmit={handleSubmitAppointment(onSubmitAppointment)}
+              className="space-y-4"
+            >
               {/* Campo do Cliente */}
               <div className="space-y-2">
                 <label htmlFor="client">Cliente</label>
@@ -500,55 +570,60 @@ export default function AgendamentosPage() {
                   name="name"
                   control={controlAppointment}
                   render={({ field }) => (
-                    <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
-  <PopoverTrigger asChild>
-    <Button
-      variant="outline"
-      className="w-full justify-start text-left font-normal"
-      onClick={() => setIsPopoverOpen(true)} // Abre o Popover ao clicar
-    >
-      <User className="mr-2 h-4 w-4" />
-      {field.value ?? "Selecione um cliente"}
-    </Button>
-  </PopoverTrigger>
-  <PopoverContent className="w-[300px] p-0">
-    <div className="p-2">
-      <Input
-        placeholder="Buscar cliente..."
-        onChange={(e) => handleSearch(e.target.value)}
-      />
-    </div>
-    <div className="max-h-[200px] overflow-y-auto">
-      {searchClients(searchQuery).map((client) => (
-        <div
-          key={client.id}
-          className="p-2 hover:bg-gray-100 cursor-pointer"
-          onClick={() => {
-            handleSelectExistingClient(client);
-            field.onChange(client.name);
-            setValue("email", client.email);
-            setValue("phone", client.phone);
-            setSearchQuery("");
-            setIsPopoverOpen(false); // Fecha o Popover após a seleção
-          }}
-        >
-          <p className="font-medium">{client.name}</p>
-          <p className="text-sm text-muted-foreground">{client.email}</p>
-        </div>
-      ))}
-    </div>
-    <div className="p-2 border-t">
-      <Button
-        variant="outline"
-        className="w-full"
-        onClick={handleOpenNewClientModal}
-      >
-        <Plus className="mr-2 h-4 w-4" />
-        Novo Cliente
-      </Button>
-    </div>
-  </PopoverContent>
-</Popover>
+                    <Popover
+                      open={isPopoverOpen}
+                      onOpenChange={setIsPopoverOpen}
+                    >
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start text-left font-normal"
+                          onClick={() => setIsPopoverOpen(true)} // Abre o Popover ao clicar
+                        >
+                          <User className="mr-2 h-4 w-4" />
+                          {field.value ?? "Selecione um cliente"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[300px] p-0">
+                        <div className="p-2">
+                          <Input
+                            placeholder="Buscar cliente..."
+                            onChange={(e) => handleSearch(e.target.value)}
+                          />
+                        </div>
+                        <div className="max-h-[200px] overflow-y-auto">
+                          {searchClients(searchQuery).map((client) => (
+                            <div
+                              key={client.id}
+                              className="p-2 hover:bg-gray-100 cursor-pointer"
+                              onClick={() => {
+                                handleSelectExistingClient(client);
+                                field.onChange(client.name);
+                                setValue("email", client.email);
+                                setValue("phone", client.phone);
+                                setSearchQuery("");
+                                setIsPopoverOpen(false); // Fecha o Popover após a seleção
+                              }}
+                            >
+                              <p className="font-medium">{client.name}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {client.email}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="p-2 border-t">
+                          <Button
+                            variant="outline"
+                            className="w-full"
+                            onClick={handleOpenNewClientModal}
+                          >
+                            <Plus className="mr-2 h-4 w-4" />
+                            Novo Cliente
+                          </Button>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                   )}
                 />
               </div>
@@ -556,15 +631,31 @@ export default function AgendamentosPage() {
               {/* Campo do Email */}
               <div className="space-y-2">
                 <label htmlFor="email">Email do Cliente</label>
-                <Input id="email" {...registerAppointment("email")} placeholder="Email do cliente" />
-                {appointmentErrors.email && <p className="text-red-500 text-sm">{appointmentErrors.email.message}</p>}
+                <Input
+                  id="email"
+                  {...registerAppointment("email")}
+                  placeholder="Email do cliente"
+                />
+                {appointmentErrors.email && (
+                  <p className="text-red-500 text-sm">
+                    {appointmentErrors.email.message}
+                  </p>
+                )}
               </div>
 
               {/* Campo do Telefone */}
               <div className="space-y-2">
                 <label htmlFor="phone">Telefone do Cliente</label>
-                <Input id="phone" {...registerAppointment("phone")} placeholder="Telefone do cliente" />
-                {appointmentErrors.phone && <p className="text-red-500 text-sm">{appointmentErrors.phone.message}</p>}
+                <Input
+                  id="phone"
+                  {...registerAppointment("phone")}
+                  placeholder="Telefone do cliente"
+                />
+                {appointmentErrors.phone && (
+                  <p className="text-red-500 text-sm">
+                    {appointmentErrors.phone.message}
+                  </p>
+                )}
               </div>
 
               {/* Campo do Serviço */}
@@ -575,7 +666,10 @@ export default function AgendamentosPage() {
                     name="serviceName"
                     control={controlAppointment}
                     render={({ field }) => (
-                      <Select onValueChange={field.onChange} value={field.value}>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value}
+                      >
                         <SelectTrigger>
                           <SelectValue placeholder="Selecione um serviço" />
                         </SelectTrigger>
@@ -589,13 +683,19 @@ export default function AgendamentosPage() {
                       </Select>
                     )}
                   />
-                  <Button type="button" variant="outline" onClick={() => setIsServiceModalOpen(true)}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsServiceModalOpen(true)}
+                  >
                     <Plus className="mr-2 h-4 w-4" />
                     Novo Serviço
                   </Button>
                 </div>
                 {appointmentErrors.serviceName && (
-                  <p className="text-red-500 text-sm">{appointmentErrors.serviceName.message}</p>
+                  <p className="text-red-500 text-sm">
+                    {appointmentErrors.serviceName.message}
+                  </p>
                 )}
               </div>
 
@@ -610,11 +710,17 @@ export default function AgendamentosPage() {
                       <>
                         <Select
                           onValueChange={(day) => {
-                            const newDate = field.value ? new Date(field.value) : new Date()
-                            newDate.setDate(Number.parseInt(day))
-                            field.onChange(newDate)
+                            const newDate = field.value
+                              ? new Date(field.value)
+                              : new Date();
+                            newDate.setDate(Number.parseInt(day));
+                            field.onChange(newDate);
                           }}
-                          value={field.value ? new Date(field.value).getDate().toString() : undefined}
+                          value={
+                            field.value
+                              ? new Date(field.value).getDate().toString()
+                              : undefined
+                          }
                         >
                           <SelectTrigger className="w-[80px]">
                             <SelectValue placeholder="Dia" />
@@ -629,11 +735,19 @@ export default function AgendamentosPage() {
                         </Select>
                         <Select
                           onValueChange={(month) => {
-                            const newDate = field.value ? new Date(field.value) : new Date()
-                            newDate.setMonth(Number.parseInt(month) - 1)
-                            field.onChange(newDate)
+                            const newDate = field.value
+                              ? new Date(field.value)
+                              : new Date();
+                            newDate.setMonth(Number.parseInt(month) - 1);
+                            field.onChange(newDate);
                           }}
-                          value={field.value ? (new Date(field.value).getMonth() + 1).toString() : undefined}
+                          value={
+                            field.value
+                              ? (
+                                  new Date(field.value).getMonth() + 1
+                                ).toString()
+                              : undefined
+                          }
                         >
                           <SelectTrigger className="w-[120px]">
                             <SelectValue placeholder="Mês" />
@@ -641,18 +755,28 @@ export default function AgendamentosPage() {
                           <SelectContent>
                             {months.map((month) => (
                               <SelectItem key={month} value={month.toString()}>
-                                {dateFns.format(new Date(2021, month - 1, 1), "MMMM", { locale: ptBR })}
+                                {dateFns.format(
+                                  new Date(2021, month - 1, 1),
+                                  "MMMM",
+                                  { locale: ptBR }
+                                )}
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                         <Select
                           onValueChange={(year) => {
-                            const newDate = field.value ? new Date(field.value) : new Date()
-                            newDate.setFullYear(Number.parseInt(year))
-                            field.onChange(newDate)
+                            const newDate = field.value
+                              ? new Date(field.value)
+                              : new Date();
+                            newDate.setFullYear(Number.parseInt(year));
+                            field.onChange(newDate);
                           }}
-                          value={field.value ? new Date(field.value).getFullYear().toString() : undefined}
+                          value={
+                            field.value
+                              ? new Date(field.value).getFullYear().toString()
+                              : undefined
+                          }
                         >
                           <SelectTrigger className="w-[100px]">
                             <SelectValue placeholder="Ano" />
@@ -669,7 +793,11 @@ export default function AgendamentosPage() {
                     )}
                   />
                 </div>
-                {appointmentErrors.date && <p className="text-red-500 text-sm">{appointmentErrors.date.message}</p>}
+                {appointmentErrors.date && (
+                  <p className="text-red-500 text-sm">
+                    {appointmentErrors.date.message}
+                  </p>
+                )}
               </div>
 
               {/* Campo do Horário */}
@@ -684,28 +812,40 @@ export default function AgendamentosPage() {
                         <SelectValue placeholder="Selecione um horário" />
                       </SelectTrigger>
                       <SelectContent>
-                        {getAvailableTimeSlots(date || new Date()).map((slot) => (
-                          <SelectItem key={slot} value={slot}>
-                            {slot}
-                          </SelectItem>
-                        ))}
+                        {getAvailableTimeSlots(date || new Date()).map(
+                          (slot) => (
+                            <SelectItem key={slot} value={slot}>
+                              {slot}
+                            </SelectItem>
+                          )
+                        )}
                       </SelectContent>
                     </Select>
                   )}
                 />
                 {appointmentErrors.timeSlot && (
-                  <p className="text-red-500 text-sm">{appointmentErrors.timeSlot.message}</p>
+                  <p className="text-red-500 text-sm">
+                    {appointmentErrors.timeSlot.message}
+                  </p>
                 )}
               </div>
 
               {/* Campo de Observações */}
               <div className="space-y-2">
                 <label htmlFor="notes">Observações</label>
-                <Input id="notes" {...registerAppointment("notes")} placeholder="Observações (opcional)" />
+                <Input
+                  id="notes"
+                  {...registerAppointment("notes")}
+                  placeholder="Observações (opcional)"
+                />
               </div>
 
               <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={handleCloseAppointmentModal}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleCloseAppointmentModal}
+                >
                   Cancelar
                 </Button>
                 <Button type="submit">Salvar</Button>
@@ -721,7 +861,10 @@ export default function AgendamentosPage() {
             description="Escolha um cliente existente ou crie um novo"
           >
             <div className="space-y-4">
-              <Input placeholder="Buscar cliente..." onChange={(e) => handleSearch(e.target.value)} />
+              <Input
+                placeholder="Buscar cliente..."
+                onChange={(e) => handleSearch(e.target.value)}
+              />
               <div className="max-h-60 overflow-y-auto">
                 {searchClients(searchQuery).map((client) => (
                   <div
@@ -731,7 +874,9 @@ export default function AgendamentosPage() {
                   >
                     <div>
                       <p className="font-medium">{client.name}</p>
-                      <p className="text-sm text-muted-foreground">{client.email}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {client.email}
+                      </p>
                     </div>
                     <Button size="sm">Selecionar</Button>
                   </div>
@@ -753,23 +898,38 @@ export default function AgendamentosPage() {
             title="Novo Cliente"
             description="Preencha os detalhes do novo cliente"
           >
-            <form onSubmit={handleSubmitClient(onSubmitClient)} className="space-y-4">
+            <form
+              onSubmit={handleSubmitClient(onSubmitClient)}
+              className="space-y-4"
+            >
               <div className="space-y-2">
                 <label htmlFor="name">Nome</label>
                 <Input id="name" {...registerClient("name")} />
-                {clientErrors.name && <p className="text-red-500 text-sm">{clientErrors.name.message}</p>}
+                {clientErrors.name && (
+                  <p className="text-red-500 text-sm">
+                    {clientErrors.name.message}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
                 <label htmlFor="email">Email</label>
                 <Input id="email" type="email" {...registerClient("email")} />
-                {clientErrors.email && <p className="text-red-500 text-sm">{clientErrors.email.message}</p>}
+                {clientErrors.email && (
+                  <p className="text-red-500 text-sm">
+                    {clientErrors.email.message}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
                 <label htmlFor="phone">Telefone</label>
                 <Input id="phone" {...registerClient("phone")} />
-                {clientErrors.phone && <p className="text-red-500 text-sm">{clientErrors.phone.message}</p>}
+                {clientErrors.phone && (
+                  <p className="text-red-500 text-sm">
+                    {clientErrors.phone.message}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -782,11 +942,17 @@ export default function AgendamentosPage() {
                       <>
                         <Select
                           onValueChange={(day) => {
-                            const newDate = field.value ? new Date(field.value) : new Date()
-                            newDate.setDate(Number.parseInt(day))
-                            field.onChange(newDate)
+                            const newDate = field.value
+                              ? new Date(field.value)
+                              : new Date();
+                            newDate.setDate(Number.parseInt(day));
+                            field.onChange(newDate);
                           }}
-                          value={field.value ? new Date(field.value).getDate().toString() : undefined}
+                          value={
+                            field.value
+                              ? new Date(field.value).getDate().toString()
+                              : undefined
+                          }
                         >
                           <SelectTrigger className="w-[80px]">
                             <SelectValue placeholder="Dia" />
@@ -801,11 +967,19 @@ export default function AgendamentosPage() {
                         </Select>
                         <Select
                           onValueChange={(month) => {
-                            const newDate = field.value ? new Date(field.value) : new Date()
-                            newDate.setMonth(Number.parseInt(month) - 1)
-                            field.onChange(newDate)
+                            const newDate = field.value
+                              ? new Date(field.value)
+                              : new Date();
+                            newDate.setMonth(Number.parseInt(month) - 1);
+                            field.onChange(newDate);
                           }}
-                          value={field.value ? (new Date(field.value).getMonth() + 1).toString() : undefined}
+                          value={
+                            field.value
+                              ? (
+                                  new Date(field.value).getMonth() + 1
+                                ).toString()
+                              : undefined
+                          }
                         >
                           <SelectTrigger className="w-[120px]">
                             <SelectValue placeholder="Mês" />
@@ -813,18 +987,28 @@ export default function AgendamentosPage() {
                           <SelectContent>
                             {months.map((month) => (
                               <SelectItem key={month} value={month.toString()}>
-                                {dateFns.format(new Date(2021, month - 1, 1), "MMMM", { locale: ptBR })}
+                                {dateFns.format(
+                                  new Date(2021, month - 1, 1),
+                                  "MMMM",
+                                  { locale: ptBR }
+                                )}
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                         <Select
                           onValueChange={(year) => {
-                            const newDate = field.value ? new Date(field.value) : new Date()
-                            newDate.setFullYear(Number.parseInt(year))
-                            field.onChange(newDate)
+                            const newDate = field.value
+                              ? new Date(field.value)
+                              : new Date();
+                            newDate.setFullYear(Number.parseInt(year));
+                            field.onChange(newDate);
                           }}
-                          value={field.value ? new Date(field.value).getFullYear().toString() : undefined}
+                          value={
+                            field.value
+                              ? new Date(field.value).getFullYear().toString()
+                              : undefined
+                          }
                         >
                           <SelectTrigger className="w-[100px]">
                             <SelectValue placeholder="Ano" />
@@ -842,12 +1026,18 @@ export default function AgendamentosPage() {
                   />
                 </div>
                 {clientErrors.lastAppointment && (
-                  <p className="text-red-500 text-sm">{clientErrors.lastAppointment.message}</p>
+                  <p className="text-red-500 text-sm">
+                    {clientErrors.lastAppointment.message}
+                  </p>
                 )}
               </div>
 
               <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={handleCloseClientModal}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleCloseClientModal}
+                >
                   Cancelar
                 </Button>
                 <Button type="submit">Salvar</Button>
@@ -862,27 +1052,54 @@ export default function AgendamentosPage() {
             title="Novo Serviço"
             description="Adicione um novo serviço"
           >
-            <form onSubmit={handleSubmitService(onSubmitService)} className="space-y-4">
+            <form
+              onSubmit={handleSubmitService(onSubmitService)}
+              className="space-y-4"
+            >
               <div className="space-y-2">
                 <label htmlFor="name">Nome do Serviço</label>
                 <Input id="name" {...registerService("name")} />
-                {serviceErrors.name && <p className="text-red-500 text-sm">{serviceErrors.name.message}</p>}
+                {serviceErrors.name && (
+                  <p className="text-red-500 text-sm">
+                    {serviceErrors.name.message}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
                 <label htmlFor="duration">Duração (minutos)</label>
-                <Input id="duration" type="number" {...registerService("duration", { valueAsNumber: true })} />
-                {serviceErrors.duration && <p className="text-red-500 text-sm">{serviceErrors.duration.message}</p>}
+                <Input
+                  id="duration"
+                  type="number"
+                  {...registerService("duration", { valueAsNumber: true })}
+                />
+                {serviceErrors.duration && (
+                  <p className="text-red-500 text-sm">
+                    {serviceErrors.duration.message}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
                 <label htmlFor="price">Preço</label>
-                <Input id="price" type="number" {...registerService("price", { valueAsNumber: true })} />
-                {serviceErrors.price && <p className="text-red-500 text-sm">{serviceErrors.price.message}</p>}
+                <Input
+                  id="price"
+                  type="number"
+                  {...registerService("price", { valueAsNumber: true })}
+                />
+                {serviceErrors.price && (
+                  <p className="text-red-500 text-sm">
+                    {serviceErrors.price.message}
+                  </p>
+                )}
               </div>
 
               <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setIsServiceModalOpen(false)}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsServiceModalOpen(false)}
+                >
                   Cancelar
                 </Button>
                 <Button type="submit">Salvar</Button>
@@ -905,11 +1122,11 @@ export default function AgendamentosPage() {
                     size="sm"
                     onClick={() => {
                       if (view === "dia") {
-                        setDate(dateFns.addDays(date, -1)) // Navega para o dia anterior
+                        setDate(dateFns.addDays(date, -1)); // Navega para o dia anterior
                       } else if (view === "semana") {
-                        setDate(dateFns.addDays(date, -7)) // Navega para a semana anterior
+                        setDate(dateFns.addDays(date, -7)); // Navega para a semana anterior
                       } else if (view === "mes") {
-                        setDate(dateFns.addMonths(date, -1)) // Navega para o mês anterior
+                        setDate(dateFns.addMonths(date, -1)); // Navega para o mês anterior
                       }
                     }}
                   >
@@ -927,17 +1144,22 @@ export default function AgendamentosPage() {
                     size="sm"
                     onClick={() => {
                       if (view === "dia") {
-                        setDate(dateFns.addDays(date, 1)) // Navega para o próximo dia
+                        setDate(dateFns.addDays(date, 1)); // Navega para o próximo dia
                       } else if (view === "semana") {
-                        setDate(dateFns.addDays(date, 7)) // Navega para a próxima semana
+                        setDate(dateFns.addDays(date, 7)); // Navega para a próxima semana
                       } else if (view === "mes") {
-                        setDate(dateFns.addMonths(date, 1)) // Navega para o próximo mês
+                        setDate(dateFns.addMonths(date, 1)); // Navega para o próximo mês
                       }
                     }}
                   >
                     <ChevronRight className="h-4 w-4" />
                   </Button>
-                  <Select value={view} onValueChange={(value: "dia" | "semana" | "mes") => setView(value)}>
+                  <Select
+                    value={view}
+                    onValueChange={(value: "dia" | "semana" | "mes") =>
+                      setView(value)
+                    }
+                  >
                     <SelectTrigger className="w-[120px]">
                       <SelectValue placeholder="Visualização" />
                     </SelectTrigger>
@@ -959,10 +1181,14 @@ export default function AgendamentosPage() {
                     <div className="grid grid-cols-1 divide-y">
                       {timeSlots.map((slot, index) => (
                         <div key={index} className="flex py-4 px-6">
-                          <div className="w-16 text-sm text-muted-foreground">{slot}</div>
+                          <div className="w-16 text-sm text-muted-foreground">
+                            {slot}
+                          </div>
                           <div className="flex-1 ml-4">
                             {filteredAppointments
-                              .filter((appointment) => appointment.timeSlot === slot)
+                              .filter(
+                                (appointment) => appointment.timeSlot === slot
+                              )
                               .map((appointment, i) => (
                                 <div
                                   key={i}
@@ -970,37 +1196,57 @@ export default function AgendamentosPage() {
                                     appointment.status === "concluido"
                                       ? "bg-green-200 border-green-400" // Verde para confirmado
                                       : appointment.status === "pendente"
-                                        ? "bg-yellow-100 border-yellow-200" // Amarelo para pendente
-                                        : "bg-red-100 border-red-200" // Vermelho para cancelado
+                                      ? "bg-yellow-100 border-yellow-200" // Amarelo para pendente
+                                      : "bg-red-100 border-red-200" // Vermelho para cancelado
                                   }`}
                                 >
                                   <div className="flex justify-between items-center">
-                                    <div className="font-medium">{appointment.name}</div>
+                                    <div className="font-medium">
+                                      {appointment.name}
+                                    </div>
                                     <DropdownMenu>
                                       <DropdownMenuTrigger asChild>
                                         <div>
-                                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-8 w-8 p-0"
+                                          >
                                             <MoreHorizontal className="h-4 w-4" />
                                           </Button>
                                         </div>
                                       </DropdownMenuTrigger>
                                       <DropdownMenuContent align="end">
-                                        <DropdownMenuItem>Ver detalhes</DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => setEditingAppointment(appointment)}>
+                                        <DropdownMenuItem>
+                                          Ver detalhes
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                          onClick={() =>
+                                            setEditingAppointment(appointment)
+                                          }
+                                        >
                                           Editar
                                         </DropdownMenuItem>
-                                        <DropdownMenuItem>Reagendar</DropdownMenuItem>
+                                        <DropdownMenuItem>
+                                          Reagendar
+                                        </DropdownMenuItem>
                                         <DropdownMenuSeparator />
                                         <DropdownMenuItem
                                           className="text-red-600"
-                                          onClick={() => handleCancelAppointment(appointment.id)}
+                                          onClick={() =>
+                                            handleCancelAppointment(
+                                              appointment.id
+                                            )
+                                          }
                                         >
                                           Cancelar
                                         </DropdownMenuItem>
                                       </DropdownMenuContent>
                                     </DropdownMenu>
                                   </div>
-                                  <div className="text-sm text-muted-foreground">{appointment.serviceName}</div>
+                                  <div className="text-sm text-muted-foreground">
+                                    {appointment.serviceName}
+                                  </div>
                                 </div>
                               ))}
                           </div>
@@ -1017,7 +1263,11 @@ export default function AgendamentosPage() {
               <div className="flex flex-col md:flex-row items-center gap-2">
                 <div className="relative flex-1">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input type="search" placeholder="Buscar agendamentos..." className="pl-8 w-full md:w-[300px]" />
+                  <Input
+                    type="search"
+                    placeholder="Buscar agendamentos..."
+                    className="pl-8 w-full md:w-[300px]"
+                  />
                 </div>
                 <Select defaultValue="todos">
                   <SelectTrigger className="w-[180px]">
@@ -1042,39 +1292,54 @@ export default function AgendamentosPage() {
                       {/* Define uma largura mínima para a tabela */}
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="whitespace-nowrap">Cliente</TableHead> {/* Evita quebras de linha */}
-                          <TableHead className="whitespace-nowrap">Serviço</TableHead>
-                          <TableHead className="whitespace-nowrap">Data</TableHead>
+                          <TableHead className="whitespace-nowrap">
+                            Cliente
+                          </TableHead>{" "}
+                          {/* Evita quebras de linha */}
+                          <TableHead className="whitespace-nowrap">
+                            Serviço
+                          </TableHead>
+                          <TableHead className="whitespace-nowrap">
+                            Data
+                          </TableHead>
                           {/* <TableHead className="whitespace-nowrap">
                           Horário
                         </TableHead> */}
-                          <TableHead className="whitespace-nowrap">Status</TableHead>
+                          <TableHead className="whitespace-nowrap">
+                            Status
+                          </TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {filteredAppointments.map((appointment) => (
                           <TableRow key={appointment.id}>
-                            <TableCell className="font-medium whitespace-nowrap">{appointment.name}</TableCell>
-                            <TableCell className="">{appointment.serviceName}</TableCell>
+                            <TableCell className="font-medium whitespace-nowrap">
+                              {appointment.name}
+                            </TableCell>
+                            <TableCell className="">
+                              {appointment.serviceName}
+                            </TableCell>
                             {/* <TableCell className="whitespace-nowrap">
                             {format(new Date(appointment.date), "dd/MM")}
                           </TableCell> */}
-                            <TableCell className="whitespace-nowrap">{appointment.timeSlot}</TableCell>
+                            <TableCell className="whitespace-nowrap">
+                              {appointment.timeSlot}
+                            </TableCell>
                             <TableCell className="whitespace-nowrap">
                               <div
                                 className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
                                   appointment.status === "concluido"
                                     ? "bg-green-100 text-green-800"
                                     : appointment.status === "pendente"
-                                      ? "bg-yellow-100 text-yellow-800"
-                                      : "bg-red-100 text-red-800"
+                                    ? "bg-yellow-100 text-yellow-800"
+                                    : "bg-red-100 text-red-800"
                                 }`}
                               >
                                 {appointment.status === "concluido"
                                   ? "Concluido"
                                   : appointment.status === "pendente"
-                                    ? "Pendente"
-                                    : "Cancelado"}
+                                  ? "Pendente"
+                                  : "Cancelado"}
                               </div>
                             </TableCell>
                           </TableRow>
@@ -1091,7 +1356,11 @@ export default function AgendamentosPage() {
               <div className="flex flex-col md:flex-row items-center gap-2">
                 <div className="relative flex-1">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input type="search" placeholder="Buscar clientes..." className="pl-8 w-full md:w-[300px]" />
+                  <Input
+                    type="search"
+                    placeholder="Buscar clientes..."
+                    className="pl-8 w-full md:w-[300px]"
+                  />
                 </div>
                 <Button size="sm" onClick={() => setIsClientModalOpen(true)}>
                   <Plus className="mr-2 h-4 w-4" />
@@ -1111,8 +1380,12 @@ export default function AgendamentosPage() {
                           <User className="h-4 w-4 text-primary" />
                         </div>
                         <div className="space-y-1">
-                          <p className="text-sm font-medium leading-none">Telefone</p>
-                          <p className="text-sm text-muted-foreground">{client.phone}</p>
+                          <p className="text-sm font-medium leading-none">
+                            Telefone
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {client.phone}
+                          </p>
                         </div>
                       </div>
                     </CardContent>
@@ -1122,9 +1395,16 @@ export default function AgendamentosPage() {
                           <Clock className="h-4 w-4 text-primary" />
                         </div>
                         <div className="space-y-1">
-                          <p className="text-sm font-medium leading-none">Último Atendimento</p>
+                          <p className="text-sm font-medium leading-none">
+                            Último Atendimento
+                          </p>
                           <p className="text-sm text-muted-foreground">
-                            {client.lastAppointment ? dateFns.format(client.lastAppointment, "dd/MM/yyyy") : "Nenhum"}
+                            {client.lastAppointment
+                              ? dateFns.format(
+                                  client.lastAppointment,
+                                  "dd/MM/yyyy"
+                                )
+                              : "Nenhum"}
                           </p>
                         </div>
                       </div>
@@ -1142,6 +1422,5 @@ export default function AgendamentosPage() {
         </div>
       </DashboardLayout>
     </ProtectedRoute>
-  )
+  );
 }
-

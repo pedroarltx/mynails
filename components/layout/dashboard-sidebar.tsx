@@ -28,6 +28,11 @@ export function DashboardSidebar() {
       icon: <DollarSign className="h-4 w-4" />,
       title: "Finanças",
     },
+    {
+      href: "/dashboard/services",
+      icon: <Settings className="h-4 w-4" />,
+      title: "Serviços",
+    },
   ]
 
   return (
