@@ -27,6 +27,7 @@ export function FinancialSummary() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [totalRevenue, setTotalRevenue] = useState(0)
   const [totalExpenses, setTotalExpenses] = useState(0)
+  const [ThirtyPercent, setThirtyPercent] = useState(0)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [transactionType, setTransactionType] = useState<"receitas" | "despesa">("receitas")
   const [description, setDescription] = useState("")
@@ -46,7 +47,10 @@ export function FinancialSummary() {
 
       const revenue = transactionsData.reduce((sum, t) => (t.type === "receitas" ? sum + t.amount : sum), 0)
       const expenses = transactionsData.reduce((sum, t) => (t.type === "despesa" ? sum + t.amount : sum), 0)
+      const total = revenue 
+      const thirtyPercent = total * 0.3
 
+      setThirtyPercent(thirtyPercent)
       setTotalRevenue(revenue)
       setTotalExpenses(expenses)
     })

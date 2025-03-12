@@ -1,6 +1,4 @@
 "use client"
-
-import type React from "react"
 import { useState } from "react"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
@@ -10,6 +8,7 @@ import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { Button } from "@/components/ui/button"
+import { useRouter } from "next/navigation"
 
 // Definir o esquema de validação com Zod
 const schema = z.object({
@@ -32,6 +31,8 @@ interface ClientFormProps {
 
 export function ClientForm({ service, date, timeSlot, serviceName, servicePrice }: ClientFormProps) {
   const [loading, setLoading] = useState(false)
+  const router = useRouter()
+
   const {
     register,
     handleSubmit,
@@ -71,6 +72,9 @@ export function ClientForm({ service, date, timeSlot, serviceName, servicePrice 
       })
 
       alert("Agendamento realizado com sucesso!")
+
+      // Redirecionar para a página inicial após o sucesso
+      router.push("/")
     } catch (error) {
       console.error("Erro ao salvar agendamento:", error)
       alert("Erro ao salvar. Tente novamente.")
@@ -148,7 +152,10 @@ export function ClientForm({ service, date, timeSlot, serviceName, servicePrice 
         </div>
       </div>
 
-      <Button type="submit" className="w-full" onClick={handleSubmit(handleConfirmAgendamento)} disabled={loading} >Confirmar Agendamento</Button>
+      <Button type="submit" className="w-full" onClick={handleSubmit(handleConfirmAgendamento)} disabled={loading}>
+        {loading ? "Enviando..." : "Confirmar Agendamento"}
+      </Button>
     </form>
   )
 }
+
